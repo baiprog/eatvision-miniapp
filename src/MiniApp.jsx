@@ -40,7 +40,9 @@ export default function MiniApp() {
         const data = await response.json();
         const text = data.choices?.[0]?.message?.content;
         setResult(text || "GPT не дал ответ 🙁");
-} catch (err) { console.error("GPT ошибка:", err); setResult(❌ Ошибка при анализе изображения:\n${err.message}); }
+ } catch (err) {
+        console.error("GPT ошибка:", err);
+        setResult(`❌ Ошибка при анализе изображения:\n${err.message}`);
       } finally {
         setLoading(false);
       }
