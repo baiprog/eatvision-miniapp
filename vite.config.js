@@ -13,7 +13,6 @@ export default defineConfig({
   preview: {
     host: true,
     port: 4173,
-    allowedHosts: ['eatvision-miniapp.onrender.com']
+    allowedHosts: ['.onrender.com'] // ← разрешает все сабдомены Render
   }
 })
-
