@@ -59,15 +59,15 @@ export default function MiniApp() {
   if (splash) {
     return (
       <div className="flex items-center justify-center h-screen bg-white flex-col">
-        <img src="/logo.svg" alt="logo" className="h-16 w-16 mb-2 animate-pulse" />
+        <img src="/img/logo.svg" alt="logo" className="h-16 w-16 mb-2 animate-pulse" />
         <p className="text-sm text-gray-500">from EatVision</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white">
-      <div className="flex-1 p-4">
+    <div className="h-screen overflow-hidden flex flex-col justify-between bg-white">
+      <div className="flex-1 overflow-y-auto p-4">
         {tab === "home" && (
           <div className="text-center text-gray-500">Лента будет позже</div>
         )}
@@ -78,7 +78,7 @@ export default function MiniApp() {
 
             <div className="w-full max-w-md">
               <img
-                src="https://images.unsplash.com/photo-1606788075761-964cc2fe67d5?w=800"
+                src="/img/checkmain.png"
                 alt="Еда"
                 className="rounded-xl w-full object-cover mb-2"
               />
@@ -116,7 +116,7 @@ export default function MiniApp() {
         </button>
         <button onClick={() => setTab("upload")} className={`flex flex-col items-center text-gray-700 ${tab === "upload" ? "text-black" : ""}`}>
           <Plus size={24} />
-          <span className="text-xs">+</span>
+          <span className="text-xs">Загрузить Фото</span>
         </button>
         <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 ${tab === "profile" ? "text-black" : ""}`}>
           <User size={24} />
