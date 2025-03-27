@@ -9,5 +9,11 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist'
+  },
+  preview: {
+    host: true,
+    port: 4173,
+    allowedHosts: ['eatvision-miniapp.onrender.com']
   }
 })
+
