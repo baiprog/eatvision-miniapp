@@ -1,4 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import ProfileView from './ProfileView';
+import { Home, Plus, User } from "lucide-react";
+
 const Button = ({ children, ...props }) => (
   <button className="px-4 py-2 bg-black text-white rounded-xl" {...props}>{children}</button>
 );
@@ -6,7 +9,6 @@ const Card = ({ children }) => (
   <div className="border border-gray-200 rounded-xl bg-gray-50 p-4 my-2">{children}</div>
 );
 const CardContent = ({ children }) => <div>{children}</div>;
-import { Home, Plus, User } from "lucide-react";
 
 export default function MiniApp() {
   const [tab, setTab] = useState("upload");
@@ -40,7 +42,7 @@ export default function MiniApp() {
         const data = await response.json();
         const text = data.choices?.[0]?.message?.content;
         setResult(text || "GPT не дал ответ 🙁");
- } catch (err) {
+      } catch (err) {
         console.error("GPT ошибка:", err);
         setResult(`❌ Ошибка при анализе изображения:\n${err.message}`);
       } finally {
@@ -104,9 +106,7 @@ export default function MiniApp() {
           </div>
         )}
 
-        {tab === "profile" && (
-          <div className="text-center text-gray-500">История генераций будет здесь</div>
-        )}
+        {tab === "profile" && <ProfileView />}
       </div>
 
       <div className="border-t p-2 flex justify-around bg-white shadow-xl">
