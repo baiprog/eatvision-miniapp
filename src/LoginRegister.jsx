@@ -1,3 +1,4 @@
+import { auth } from './firebase'; // путь зависит от твоей структуры
 import { useState } from 'react';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
