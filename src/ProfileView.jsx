@@ -3,6 +3,7 @@ import { Pencil } from "lucide-react";
 import { collection, query, orderBy, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import EditProfileModal from "./EditProfileModal";
+import MealPlanSection from "./MealPlanSection";
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
@@ -81,24 +82,7 @@ export default function ProfileView({ user }) {
         </div>
       </Card>
 
-      <Card>
-        <div className="font-bold text-lg mb-2">🍽 План питания</div>
-        <MealCard
-          image="https://source.unsplash.com/100x100/?salad"
-          title="Овощной салат с курицей"
-          kcal={320}
-        />
-        <MealCard
-          image="https://source.unsplash.com/100x100/?oatmeal"
-          title="Овсянка с фруктами"
-          kcal={280}
-        />
-        <MealCard
-          image="https://source.unsplash.com/100x100/?steak"
-          title="Говядина с рисом"
-          kcal={450}
-        />
-      </Card>
+      <MealPlanSection user={user} />
 
       <Card>
         <div className="flex justify-between items-center mb-2">
