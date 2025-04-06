@@ -51,6 +51,7 @@ export default function MiniApp() {
           await addDoc(collection(db, "users", user.uid, "generations"), {
             resultText: text,
             createdAt: serverTimestamp(),
+            image: `data:image/jpeg;base64,${base64}`,
           });
         }
       } catch (err) {
