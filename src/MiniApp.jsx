@@ -84,67 +84,69 @@ export default function MiniApp() {
   }
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col justify-between bg-white">
-      <div className="flex-1 overflow-y-auto p-4">
-        {tab === "home" && (
-          <div className="text-center text-gray-500">Лента будет позже</div>
-        )}
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <div className="h-screen overflow-hidden flex flex-col justify-between bg-white">
+        <div className="flex-1 overflow-y-auto p-4">
+          {tab === "home" && (
+            <div className="text-center text-gray-500">Лента будет позже</div>
+          )}
 
-        {tab === "upload" && (
-          <div className="flex flex-col items-center gap-4">
-            <h1 className="text-2xl font-bold">🥗 Анализ еды</h1>
+          {tab === "upload" && (
+            <div className="flex flex-col items-center gap-4">
+              <h1 className="text-2xl font-bold">🥗 Анализ еды</h1>
 
-            <div className="w-full max-w-md">
-              <img
-                src="/img/checkmain.png"
-                alt="Еда"
-                className="rounded-xl w-full object-cover mb-2"
-              />
-              <p className="text-center text-sm text-gray-600 font-medium">🍽 Посчитай калории</p>
+              <div className="w-full max-w-md">
+                <img
+                  src="/img/checkmain.png"
+                  alt="Еда"
+                  className="rounded-xl w-full object-cover mb-2"
+                />
+                <p className="text-center text-sm text-gray-600 font-medium">🍽 Посчитай калории</p>
+              </div>
+
+              <Button onClick={openFilePicker}>📷 Выбрать фото</Button>
+              {loading && <p className="text-sm text-gray-500 animate-pulse">⏳ Анализируем изображение...</p>}
+              {result && (
+                <Card className="w-full max-w-md border border-green-200 shadow-md bg-green-50">
+                  <CardContent className="p-4 whitespace-pre-wrap text-sm text-gray-700">
+                    {result}
+                  </CardContent>
+                </Card>
+              )}
             </div>
+          )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <Button onClick={openFilePicker}>📷 Выбрать фото</Button>
-            {loading && <p className="text-sm text-gray-500 animate-pulse">⏳ Анализируем изображение...</p>}
-            {result && (
-              <Card className="w-full max-w-md border border-green-200 shadow-md bg-green-50">
-                <CardContent className="p-4 whitespace-pre-wrap text-sm text-gray-700">
-                  {result}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
+          {tab === "profile" && <ProfileView user={user} />}
+        </div>
 
-        {tab === "profile" && <ProfileView user={user} />}
+        <div className="border-t p-2 flex justify-around bg-white shadow-xl">
+          <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 ${tab === "home" ? "text-black" : ""}`}>
+            <Home size={24} />
+            <span className="text-xs">Домой</span>
+          </button>
+          <button
+            onClick={() => {
+              setTab("upload");
+              setTimeout(() => openFilePicker(), 100);
+            }}
+            className={`flex flex-col items-center text-gray-700 ${tab === "upload" ? "text-black" : ""}`}
+          >
+            <Plus size={24} />
+            <span className="text-xs">Загрузить Фото</span>
+          </button>
+          <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 ${tab === "profile" ? "text-black" : ""}`}>
+            <User size={24} />
+            <span className="text-xs">Профиль</span>
+          </button>
+        </div>
       </div>
-
-      <div className="border-t p-2 flex justify-around bg-white shadow-xl">
-        <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 ${tab === "home" ? "text-black" : ""}`}>
-          <Home size={24} />
-          <span className="text-xs">Домой</span>
-        </button>
-       <button
-  onClick={() => {
-    setTab("upload");
-    setTimeout(() => openFilePicker(), 100);
-  }}
-  className={`flex flex-col items-center text-gray-700 ${tab === "upload" ? "text-black" : ""}`}
->
-  <Plus size={24} />
-  <span className="text-xs">Загрузить Фото</span>
-</button>
-        <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 ${tab === "profile" ? "text-black" : ""}`}>
-          <User size={24} />
-          <span className="text-xs">Профиль</span>
-        </button>
-      </div>
-    </div>
+    </>
   );
 }
