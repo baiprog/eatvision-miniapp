@@ -43,8 +43,11 @@ export default function MealPlanSection({ user }) {
     if (!regenerate) {
       const saved = await getDoc(ref);
       if (saved.exists()) {
-        setMeals(saved.data().plan);
-        return;
+        const savedData = saved.data().plan;
+        if (Array.isArray(savedData)) {
+          setMeals(savedData);
+          return;
+        }
       }
     }
 
@@ -66,21 +69,15 @@ export default function MealPlanSection({ user }) {
       const match = content.match(/```json\s*([\s\S]*?)```/i);
       const jsonText = match ? match[1] : content;
 
-      // Защита от HTML или текстовых ответов
-      if (!jsonText.trim().startsWith("[")) {
-        throw new Error("Ответ не содержит JSON-массив");
+      const parsed = JSON.parse(jsonText);
+
+      if (!Array.isArray(parsed)) {
+        throw new Error("Результат GPT не является массивом");
       }
 
-      const json = JSON.parse(jsonText);
-
-      if (!Array.isArray(json)) {
-        throw new Error("JSON is not массив");
-      }
-
-      setMeals(json);
-
+      setMeals(parsed);
       await setDoc(ref, {
-        plan: json,
+        plan: parsed,
         createdAt: serverTimestamp(),
       });
     } catch (err) {
@@ -110,7 +107,7 @@ export default function MealPlanSection({ user }) {
 
       {loading ? (
         <p className="text-sm text-gray-500">⏳ Генерируем план питания...</p>
-      ) : Array.isArray(meals) ? (
+      ) : Array.isArray(meals) && meals.length > 0 ? (
         meals.map((meal, i) => (
           <MealCard
             key={i}
@@ -120,7 +117,7 @@ export default function MealPlanSection({ user }) {
           />
         ))
       ) : (
-        <p className="text-sm text-red-500">⚠️ План не доступен.</p>
+        <p className="text-sm text-gray-400">План питания не найден</p>
       )}
     </Card>
   );
