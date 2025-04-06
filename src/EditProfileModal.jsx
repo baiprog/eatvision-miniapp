@@ -1,37 +1,38 @@
+import { useState, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment, useState, useEffect } from "react";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { Fragment } from "react";
 import { db } from "./firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
-export default function EditProfileModal({ isOpen, onClose, user, onSaved }) {
+export default function EditProfileModal({ user, isOpen, onClose }) {
   const [form, setForm] = useState({
     weight: "",
     height: "",
     age: "",
-    activity: "Умеренная активность",
-    goal: "Похудеть",
+    activity: "",
+    goal: ""
   });
 
   useEffect(() => {
-    if (user?.uid) {
-      const ref = doc(db, "users", user.uid);
-      getDoc(ref).then((docSnap) => {
-        if (docSnap.exists()) {
-          setForm({ ...form, ...docSnap.data() });
-        }
-      });
-    }
+    const fetchData = async () => {
+      if (!user?.uid) return;
+      const docRef = doc(db, "users", user.uid);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        setForm((prev) => ({ ...prev, ...snap.data() }));
+      }
+    };
+    fetchData();
   }, [user]);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
     if (!user?.uid) return;
-    const ref = doc(db, "users", user.uid);
-    await setDoc(ref, form);
-    onSaved(form);
+    await setDoc(doc(db, "users", user.uid), form, { merge: true });
     onClose();
   };
 
@@ -40,24 +41,24 @@ export default function EditProfileModal({ isOpen, onClose, user, onSaved }) {
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         <Transition.Child
           as={Fragment}
-          enter="ease-out duration-200"
+          enter="ease-out duration-300"
           enterFrom="opacity-0"
           enterTo="opacity-100"
-          leave="ease-in duration-150"
+          leave="ease-in duration-200"
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/25" />
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center">
+          <div className="flex min-h-full items-center justify-center p-4">
             <Transition.Child
               as={Fragment}
-              enter="ease-out duration-200"
+              enter="ease-out duration-300"
               enterFrom="opacity-0 scale-95"
               enterTo="opacity-100 scale-100"
-              leave="ease-in duration-150"
+              leave="ease-in duration-200"
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
@@ -66,65 +67,78 @@ export default function EditProfileModal({ isOpen, onClose, user, onSaved }) {
                   ✏️ Редактировать параметры
                 </Dialog.Title>
 
-               <div className="space-y-3">
-  <input
-    name="weight"
-    placeholder="Вес (кг)"
-    type="number"
-    value={form.weight}
-    onChange={handleChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
-  />
-  <input
-    name="height"
-    placeholder="Рост (см)"
-    type="number"
-    value={form.height}
-    onChange={handleChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
-  />
-  <input
-    name="age"
-    placeholder="Возраст"
-    type="number"
-    value={form.age}
-    onChange={handleChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
-  />
+                <div className="space-y-4">
+                  <Input label="Вес (кг)" name="weight" value={form.weight} onChange={handleChange} />
+                  <Input label="Рост (см)" name="height" value={form.height} onChange={handleChange} />
+                  <Input label="Возраст" name="age" value={form.age} onChange={handleChange} />
+                  <Select
+                    label="Активность"
+                    name="activity"
+                    value={form.activity}
+                    onChange={handleChange}
+                    options={[
+                      "Низкая активность",
+                      "Умеренная активность",
+                      "Высокая активность"
+                    ]}
+                  />
+                  <Select
+                    label="Цель"
+                    name="goal"
+                    value={form.goal}
+                    onChange={handleChange}
+                    options={["Похудеть", "Поддерживать вес", "Набрать массу"]}
+                  />
+                </div>
 
-  <select
-    name="activity"
-    value={form.activity}
-    onChange={handleChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-black"
-  >
-    <option>Малоподвижный образ жизни</option>
-    <option>Умеренная активность</option>
-    <option>Высокая активность</option>
-  </select>
-
-  <select
-    name="goal"
-    value={form.goal}
-    onChange={handleChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-black"
-  >
-    <option>Похудеть</option>
-    <option>Поддерживать вес</option>
-    <option>Набрать массу</option>
-  </select>
-</div>
-
-
-                <div className="mt-6 flex justify-end gap-2">
-                  <button onClick={onClose} className="px-4 py-2 text-gray-600">Отмена</button>
-                  <button onClick={handleSave} className="px-4 py-2 bg-black text-white rounded-xl">Сохранить</button>
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-100"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="px-4 py-2 rounded-xl bg-black text-white text-sm"
+                  >
+                    Сохранить
+                  </button>
                 </div>
               </Dialog.Panel>
             </Transition.Child>
           </div>
         </div>
       </Dialog>
-    </Transition>
+    </Transition.Child>
+  );
+}
+
+function Input({ label, ...props }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <input
+        {...props}
+        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+      />
+    </div>
+  );
+}
+
+function Select({ label, options, ...props }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <select
+        {...props}
+        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+      >
+        <option value="">Выберите...</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+    </div>
   );
 }
