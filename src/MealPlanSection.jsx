@@ -62,7 +62,9 @@ export default function MealPlanSection({ user }) {
 
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content;
-      const json = JSON.parse(content);
+const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
+const jsonText = match ? match[1] : content;
+const json = JSON.parse(jsonText);
       setMeals(json);
 
       await setDoc(ref, {
