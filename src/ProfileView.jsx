@@ -1,23 +1,19 @@
 import { useState, useEffect } from "react";
 import { Pencil } from "lucide-react";
-import { collection, query, orderBy, onSnapshot, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { db } from "./firebase";
 import EditProfileModal from "./EditProfileModal";
 import MealPlanSection from "./MealPlanSection";
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
-);
-
-const MealCard = ({ image, title, kcal }) => (
-  <div className="flex items-center gap-3 border rounded-xl p-2">
-    <img src={image} alt={title} className="w-12 h-12 rounded-lg object-cover" />
-    <div className="flex-1">
-      <div className="font-semibold text-sm">{title}</div>
-      <div className="text-xs text-gray-500">{kcal} ккал</div>
-    </div>
-    <button className="text-xs text-blue-500 font-medium">Подробнее</button>
-  </div>
 );
 
 export default function ProfileView({ user }) {
@@ -39,7 +35,7 @@ export default function ProfileView({ user }) {
           height: 170,
           age: 25,
           activity: "Умеренная активность",
-          goal: "Поддерживать форму"
+          goal: "Поддерживать форму",
         });
       }
     };
@@ -74,15 +70,19 @@ export default function ProfileView({ user }) {
           </button>
         </div>
         <div className="text-sm text-gray-700 leading-relaxed">
-          Вес: <b>{userInfo.weight} кг</b><br />
-          Рост: <b>{userInfo.height} см</b><br />
-          Возраст: <b>{userInfo.age}</b><br />
-          Активность: <b>{userInfo.activity}</b><br />
+          Вес: <b>{userInfo.weight} кг</b>
+          <br />
+          Рост: <b>{userInfo.height} см</b>
+          <br />
+          Возраст: <b>{userInfo.age}</b>
+          <br />
+          Активность: <b>{userInfo.activity}</b>
+          <br />
           Цель: <b>{userInfo.goal}</b>
         </div>
       </Card>
 
-      <MealPlanSection user={user} />
+      <MealPlanSection user={user} userInfo={userInfo} />
 
       <Card>
         <div className="flex justify-between items-center mb-2">
