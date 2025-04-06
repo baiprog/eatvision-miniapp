@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Pencil } from "lucide-react";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { db } from "./firebase";
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
@@ -16,14 +18,35 @@ const MealCard = ({ image, title, kcal }) => (
   </div>
 );
 
-export default function ProfileView() {
-  const [user] = useState({
+export default function ProfileView({ user }) {
+  const [userInfo] = useState({
     weight: 76,
     height: 173,
     age: 24,
     activity: "Умеренная активность",
-    goal: "Похудеть"
+    goal: "Похудеть",
   });
+
+  const [generations, setGenerations] = useState([]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const q = query(
+      collection(db, "users", user.uid, "generations"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setGenerations(data);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   return (
     <div className="max-w-md mx-auto">
@@ -36,11 +59,11 @@ export default function ProfileView() {
           </button>
         </div>
         <div className="text-sm text-gray-700 leading-relaxed">
-          Вес: <b>{user.weight} кг</b><br />
-          Рост: <b>{user.height} см</b><br />
-          Возраст: <b>{user.age}</b><br />
-          Активность: <b>{user.activity}</b><br />
-          Цель: <b>{user.goal}</b>
+          Вес: <b>{userInfo.weight} кг</b><br />
+          Рост: <b>{userInfo.height} см</b><br />
+          Возраст: <b>{userInfo.age}</b><br />
+          Активность: <b>{userInfo.activity}</b><br />
+          Цель: <b>{userInfo.goal}</b>
         </div>
       </Card>
 
@@ -70,10 +93,21 @@ export default function ProfileView() {
           <div className="font-bold text-lg">🕓 История</div>
           <button className="text-blue-500 text-sm font-medium">Все</button>
         </div>
-        <div className="flex gap-2 overflow-x-auto">
-          <img src="/img/sample1.jpg" className="w-20 h-20 rounded-xl object-cover" alt="sample" />
-          <img src="/img/sample2.jpg" className="w-20 h-20 rounded-xl object-cover" alt="sample" />
-        </div>
+
+        {generations.length === 0 ? (
+          <p className="text-sm text-gray-500">Пока нет генераций</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {generations.map((gen) => (
+              <div key={gen.id} className="text-sm text-gray-700 bg-gray-50 p-3 rounded-xl shadow">
+                <div className="text-xs text-gray-400">
+                  {gen.createdAt?.toDate?.().toLocaleString()}
+                </div>
+                <div className="whitespace-pre-wrap mt-1">{gen.resultText}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );
