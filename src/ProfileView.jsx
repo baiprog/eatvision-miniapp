@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Pencil } from "lucide-react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
+import EditProfileModal from "./EditProfileModal";
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
@@ -19,18 +20,30 @@ const MealCard = ({ image, title, kcal }) => (
 );
 
 export default function ProfileView({ user }) {
-  const [userInfo] = useState({
-    weight: 76,
-    height: 173,
-    age: 24,
-    activity: "Умеренная активность",
-    goal: "Похудеть",
-  });
-
+  const [userInfo, setUserInfo] = useState(null);
   const [generations, setGenerations] = useState([]);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
+
+    const loadUserInfo = async () => {
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setUserInfo(docSnap.data());
+      } else {
+        setUserInfo({
+          weight: 70,
+          height: 170,
+          age: 25,
+          activity: "Умеренная активность",
+          goal: "Поддерживать форму"
+        });
+      }
+    };
+
+    loadUserInfo();
 
     const q = query(
       collection(db, "users", user.uid, "generations"),
@@ -48,13 +61,14 @@ export default function ProfileView({ user }) {
     return () => unsubscribe();
   }, [user]);
 
+  if (!userInfo) return null;
+
   return (
     <div className="max-w-md mx-auto">
-      {/* Параметры */}
       <Card>
         <div className="flex justify-between items-center mb-2">
           <div className="font-bold text-lg">🎯 Цель и параметры</div>
-          <button className="text-gray-400 hover:text-black">
+          <button onClick={() => setEditOpen(true)} className="text-gray-400 hover:text-black">
             <Pencil size={18} />
           </button>
         </div>
@@ -67,7 +81,6 @@ export default function ProfileView({ user }) {
         </div>
       </Card>
 
-      {/* План питания */}
       <Card>
         <div className="font-bold text-lg mb-2">🍽 План питания</div>
         <MealCard
@@ -87,7 +100,6 @@ export default function ProfileView({ user }) {
         />
       </Card>
 
-      {/* История генераций */}
       <Card>
         <div className="flex justify-between items-center mb-2">
           <div className="font-bold text-lg">🕓 История</div>
@@ -119,6 +131,14 @@ export default function ProfileView({ user }) {
           </div>
         )}
       </Card>
+
+      <EditProfileModal
+        user={user}
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        userInfo={userInfo}
+        onUpdate={setUserInfo}
+      />
     </div>
   );
 }
