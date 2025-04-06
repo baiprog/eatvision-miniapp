@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import ProfileView from './ProfileView';
+import LoginRegister from './LoginRegister';
 import { Home, Plus, User } from "lucide-react";
 
 const Button = ({ children, ...props }) => (
@@ -15,6 +16,7 @@ export default function MiniApp() {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [splash, setSplash] = useState(true);
+  const [user, setUser] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -57,6 +59,10 @@ export default function MiniApp() {
       fileInputRef.current.click();
     }
   };
+
+  if (!user) {
+    return <LoginRegister onLogin={(u) => setUser(u)} />;
+  }
 
   if (splash) {
     return (
