@@ -61,41 +61,31 @@ export default function MealPlanSection({ user }) {
       });
 
       const data = await res.json();
-      const content = data.choices?.[0]?.message?.content;
+      const content = data.choices?.[0]?.message?.content || "";
 
-      let json;
-      try {
-        const content = data.choices?.[0]?.message?.content || "";
+      const match = content.match(/```json\s*([\s\S]*?)```/i);
+      const jsonText = match ? match[1] : content;
 
-let json;
-try {
-  const match = content.match(/```json\s*([\s\S]*?)```/i);
-  const jsonText = match ? match[1] : content;
+      if (!jsonText.trim().startsWith("[")) {
+        throw new Error("Ответ не содержит JSON-массив");
+      }
 
-  // Защита от HTML или текстовых ответов
-  if (!jsonText.trim().startsWith("[")) {
-    throw new Error("Ответ не содержит JSON-массив");
-  }
+      const json = JSON.parse(jsonText);
+      if (!Array.isArray(json)) {
+        throw new Error("JSON is not массив");
+      }
 
-  json = JSON.parse(jsonText);
-  if (!Array.isArray(json)) {
-    throw new Error("JSON is not массив");
-  }
+      setMeals(json);
 
-  setMeals(json);
+      await setDoc(ref, {
+        plan: json,
+        createdAt: serverTimestamp(),
+      });
 
-  await setDoc(ref, {
-    plan: json,
-    createdAt: serverTimestamp(),
-  });
-} catch (err) {
-  console.error("❌ Ошибка обработки JSON:", err);
-  setMeals([]);
-  alert("⚠️ Не удалось сгенерировать план питания. Попробуй позже.");
-}
-
-    } catch (e) {
-      console.error("❌ Ошибка генерации плана питания:", e);
+    } catch (err) {
+      console.error("❌ Ошибка обработки JSON или генерации:", err);
+      setMeals([]);
+      alert("⚠️ Не удалось сгенерировать план питания. Попробуй позже.");
     } finally {
       setLoading(false);
     }
