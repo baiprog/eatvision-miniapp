@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import ProfileView from './ProfileView';
 import LoginRegister from './LoginRegister';
 import { Home, Plus, User } from "lucide-react";
+import { db } from './firebase';
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const Button = ({ children, ...props }) => (
   <button className="px-4 py-2 bg-black text-white rounded-xl" {...props}>{children}</button>
@@ -42,8 +44,15 @@ export default function MiniApp() {
         });
 
         const data = await response.json();
-        const text = data.choices?.[0]?.message?.content;
-        setResult(text || "GPT не дал ответ 🙁");
+        const text = data.choices?.[0]?.message?.content || "GPT не дал ответ 🙁";
+        setResult(text);
+
+        if (user) {
+          await addDoc(collection(db, "users", user.uid, "generations"), {
+            resultText: text,
+            createdAt: serverTimestamp(),
+          });
+        }
       } catch (err) {
         console.error("GPT ошибка:", err);
         setResult(`❌ Ошибка при анализе изображения:\n${err.message}`);
@@ -112,7 +121,7 @@ export default function MiniApp() {
           </div>
         )}
 
-        {tab === "profile" && <ProfileView />}
+        {tab === "profile" && <ProfileView user={user} />}
       </div>
 
       <div className="border-t p-2 flex justify-around bg-white shadow-xl">
@@ -120,7 +129,7 @@ export default function MiniApp() {
           <Home size={24} />
           <span className="text-xs">Домой</span>
         </button>
-        <button onClick={() => setTab("upload")} className={`flex flex-col items-center text-gray-700 ${tab === "upload" ? "text-black" : ""}`}>
+        <button onClick={openFilePicker} className={`flex flex-col items-center text-gray-700 ${tab === "upload" ? "text-black" : ""}`}>
           <Plus size={24} />
           <span className="text-xs">Загрузить Фото</span>
         </button>
