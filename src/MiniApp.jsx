@@ -130,10 +130,16 @@ export default function MiniApp() {
           <Home size={24} />
           <span className="text-xs">Домой</span>
         </button>
-        <button onClick={openFilePicker} className={`flex flex-col items-center text-gray-700 ${tab === "upload" ? "text-black" : ""}`}>
-          <Plus size={24} />
-          <span className="text-xs">Загрузить Фото</span>
-        </button>
+       <button
+  onClick={() => {
+    setTab("upload");
+    setTimeout(() => openFilePicker(), 100);
+  }}
+  className={`flex flex-col items-center text-gray-700 ${tab === "upload" ? "text-black" : ""}`}
+>
+  <Plus size={24} />
+  <span className="text-xs">Загрузить Фото</span>
+</button>
         <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 ${tab === "profile" ? "text-black" : ""}`}>
           <User size={24} />
           <span className="text-xs">Профиль</span>
