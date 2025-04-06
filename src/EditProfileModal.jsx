@@ -66,23 +66,55 @@ export default function EditProfileModal({ isOpen, onClose, user, onSaved }) {
                   ✏️ Редактировать параметры
                 </Dialog.Title>
 
-                <div className="space-y-3">
-                  <input name="weight" placeholder="Вес (кг)" type="number" value={form.weight} onChange={handleChange} className="w-full p-2 border rounded-xl" />
-                  <input name="height" placeholder="Рост (см)" type="number" value={form.height} onChange={handleChange} className="w-full p-2 border rounded-xl" />
-                  <input name="age" placeholder="Возраст" type="number" value={form.age} onChange={handleChange} className="w-full p-2 border rounded-xl" />
-                  
-                  <select name="activity" value={form.activity} onChange={handleChange} className="w-full p-2 border rounded-xl">
-                    <option>Малоподвижный образ жизни</option>
-                    <option>Умеренная активность</option>
-                    <option>Высокая активность</option>
-                  </select>
+               <div className="space-y-3">
+  <input
+    name="weight"
+    placeholder="Вес (кг)"
+    type="number"
+    value={form.weight}
+    onChange={handleChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+  />
+  <input
+    name="height"
+    placeholder="Рост (см)"
+    type="number"
+    value={form.height}
+    onChange={handleChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+  />
+  <input
+    name="age"
+    placeholder="Возраст"
+    type="number"
+    value={form.age}
+    onChange={handleChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+  />
 
-                  <select name="goal" value={form.goal} onChange={handleChange} className="w-full p-2 border rounded-xl">
-                    <option>Похудеть</option>
-                    <option>Поддерживать вес</option>
-                    <option>Набрать массу</option>
-                  </select>
-                </div>
+  <select
+    name="activity"
+    value={form.activity}
+    onChange={handleChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-black"
+  >
+    <option>Малоподвижный образ жизни</option>
+    <option>Умеренная активность</option>
+    <option>Высокая активность</option>
+  </select>
+
+  <select
+    name="goal"
+    value={form.goal}
+    onChange={handleChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-black"
+  >
+    <option>Похудеть</option>
+    <option>Поддерживать вес</option>
+    <option>Набрать массу</option>
+  </select>
+</div>
+
 
                 <div className="mt-6 flex justify-end gap-2">
                   <button onClick={onClose} className="px-4 py-2 text-gray-600">Отмена</button>
