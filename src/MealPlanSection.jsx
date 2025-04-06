@@ -62,15 +62,27 @@ export default function MealPlanSection({ user }) {
 
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content;
-const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
-const jsonText = match ? match[1] : content;
-const json = JSON.parse(jsonText);
-      setMeals(json);
 
-      await setDoc(ref, {
-        plan: json,
-        createdAt: serverTimestamp(),
-      });
+      let json;
+      try {
+        const match = content.match(/```json\s*([\s\S]*?)```/i);
+        const jsonText = match ? match[1] : content;
+        json = JSON.parse(jsonText);
+
+        if (!Array.isArray(json)) {
+          throw new Error("JSON is not an array");
+        }
+
+        setMeals(json);
+
+        await setDoc(ref, {
+          plan: json,
+          createdAt: serverTimestamp(),
+        });
+      } catch (parseError) {
+        console.error("❌ Ошибка обработки JSON:", parseError);
+        setMeals([]);
+      }
     } catch (e) {
       console.error("❌ Ошибка генерации плана питания:", e);
     } finally {
