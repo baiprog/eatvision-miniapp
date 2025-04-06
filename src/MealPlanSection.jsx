@@ -66,11 +66,13 @@ export default function MealPlanSection({ user }) {
       const match = content.match(/```json\s*([\s\S]*?)```/i);
       const jsonText = match ? match[1] : content;
 
+      // Защита от HTML или текстовых ответов
       if (!jsonText.trim().startsWith("[")) {
         throw new Error("Ответ не содержит JSON-массив");
       }
 
       const json = JSON.parse(jsonText);
+
       if (!Array.isArray(json)) {
         throw new Error("JSON is not массив");
       }
@@ -81,9 +83,8 @@ export default function MealPlanSection({ user }) {
         plan: json,
         createdAt: serverTimestamp(),
       });
-
     } catch (err) {
-      console.error("❌ Ошибка обработки JSON или генерации:", err);
+      console.error("❌ Ошибка обработки JSON:", err);
       setMeals([]);
       alert("⚠️ Не удалось сгенерировать план питания. Попробуй позже.");
     } finally {
@@ -109,7 +110,7 @@ export default function MealPlanSection({ user }) {
 
       {loading ? (
         <p className="text-sm text-gray-500">⏳ Генерируем план питания...</p>
-      ) : (
+      ) : Array.isArray(meals) ? (
         meals.map((meal, i) => (
           <MealCard
             key={i}
@@ -118,8 +119,11 @@ export default function MealPlanSection({ user }) {
             image={`https://source.unsplash.com/100x100/?food,${encodeURIComponent(meal.title)}&sig=${i}`}
           />
         ))
+      ) : (
+        <p className="text-sm text-red-500">⚠️ План не доступен.</p>
       )}
     </Card>
   );
 }
+
 
