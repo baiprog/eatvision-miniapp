@@ -65,24 +65,35 @@ export default function MealPlanSection({ user }) {
 
       let json;
       try {
-        const match = content.match(/```json\s*([\s\S]*?)```/i);
-        const jsonText = match ? match[1] : content;
-        json = JSON.parse(jsonText);
+        const content = data.choices?.[0]?.message?.content || "";
 
-        if (!Array.isArray(json)) {
-          throw new Error("JSON is not an array");
-        }
+let json;
+try {
+  const match = content.match(/```json\s*([\s\S]*?)```/i);
+  const jsonText = match ? match[1] : content;
 
-        setMeals(json);
+  // Защита от HTML или текстовых ответов
+  if (!jsonText.trim().startsWith("[")) {
+    throw new Error("Ответ не содержит JSON-массив");
+  }
 
-        await setDoc(ref, {
-          plan: json,
-          createdAt: serverTimestamp(),
-        });
-      } catch (parseError) {
-        console.error("❌ Ошибка обработки JSON:", parseError);
-        setMeals([]);
-      }
+  json = JSON.parse(jsonText);
+  if (!Array.isArray(json)) {
+    throw new Error("JSON is not массив");
+  }
+
+  setMeals(json);
+
+  await setDoc(ref, {
+    plan: json,
+    createdAt: serverTimestamp(),
+  });
+} catch (err) {
+  console.error("❌ Ошибка обработки JSON:", err);
+  setMeals([]);
+  alert("⚠️ Не удалось сгенерировать план питания. Попробуй позже.");
+}
+
     } catch (e) {
       console.error("❌ Ошибка генерации плана питания:", e);
     } finally {
