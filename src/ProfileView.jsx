@@ -99,20 +99,21 @@ export default function ProfileView({ user }) {
         ) : (
           <div className="flex flex-col gap-3">
             {generations.map((gen) => (
-              <div key={gen.id} className="flex gap-3 items-start bg-gray-50 p-3 rounded-xl shadow">
+              <div
+                key={gen.id}
+                className="bg-gray-50 p-3 rounded-xl shadow border text-sm text-gray-800"
+              >
                 {gen.image && (
                   <img
                     src={gen.image}
-                    alt="analyzed"
-                    className="w-14 h-14 object-cover rounded-md border"
+                    alt="Анализ"
+                    className="w-full max-h-48 object-contain mb-2 rounded-lg"
                   />
                 )}
-                <div>
-                  <div className="text-xs text-gray-400 mb-1">
-                    {gen.createdAt?.toDate?.().toLocaleString()}
-                  </div>
-                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{gen.resultText}</div>
+                <div className="text-xs text-gray-400">
+                  {gen.createdAt?.toDate?.().toLocaleString()}
                 </div>
+                <div className="whitespace-pre-wrap mt-1">{gen.resultText}</div>
               </div>
             ))}
           </div>
