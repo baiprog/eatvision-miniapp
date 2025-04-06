@@ -21,41 +21,35 @@ export default function MealPlanSection({ user }) {
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const generatePlan = async () => {
-      if (!user?.uid) return;
-      setLoading(true);
+  const generatePlan = async () => {
+    if (!user?.uid) return;
+    setLoading(true);
+
+    try {
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       const userInfo = snap.data();
 
-      const prompt = `Составь план питания на день для человека с параметрами: вес ${userInfo.weight} кг, рост ${userInfo.height} см, возраст ${userInfo.age}, активность: ${userInfo.activity}, цель: ${userInfo.goal}. Верни в формате JSON массив с блюдами, каждое содержит: title, kcal.`;
+      const prompt = `Составь план питания на день для человека с параметрами: вес ${userInfo.weight} кг, рост ${userInfo.height} см, возраст ${userInfo.age}, активность: ${userInfo.activity}, цель: ${userInfo.goal}. Верни JSON-массив из блюд, каждое содержит: title, kcal.`;
 
-      try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer YOUR_OPENAI_KEY`,
-          },
-          body: JSON.stringify({
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.7,
-          }),
-        });
+      const res = await fetch("https://gpt4-vision-proxy.onrender.com/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
 
-        const data = await res.json();
-        const content = data.choices[0].message.content;
-        const json = JSON.parse(content);
-        setMeals(json);
-      } catch (e) {
-        console.error("Ошибка генерации плана питания:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      const json = JSON.parse(content);
+      setMeals(json);
+    } catch (e) {
+      console.error("❌ Ошибка генерации плана питания:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     generatePlan();
   }, [user]);
 
@@ -63,11 +57,8 @@ export default function MealPlanSection({ user }) {
     <Card>
       <div className="flex justify-between items-center mb-2">
         <div className="font-bold text-lg">🍽 План питания</div>
-        <button
-          className="text-sm text-blue-500"
-          onClick={() => window.location.reload()}
-        >
-          Обновить
+        <button onClick={generatePlan} className="text-sm text-blue-500">
+          🔄 Обновить
         </button>
       </div>
 
@@ -75,7 +66,12 @@ export default function MealPlanSection({ user }) {
         <p className="text-sm text-gray-500">⏳ Генерируем план питания...</p>
       ) : (
         meals.map((meal, i) => (
-          <MealCard key={i} title={meal.title} kcal={meal.kcal} image={`https://source.unsplash.com/100x100/?food,${i}`} />
+          <MealCard
+            key={i}
+            title={meal.title}
+            kcal={meal.kcal}
+            image={`https://source.unsplash.com/100x100/?food,${encodeURIComponent(meal.title)}`}
+          />
         ))
       )}
     </Card>
