@@ -1,105 +1,54 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { collection, doc, getDoc, getDocs, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  query,
-  serverTimestamp,
-  setDoc,
-  orderBy
-} from "firebase/firestore";
 import GoalSetup from "./GoalSetup";
 import WeightGoalCard from "./WeightGoalCard";
-import WeightDailyTargetCard from "./WeightDailyTargetCard";
 import WeightLogCard from "./WeightLogCard";
-
-const Card = ({ children }) => (
-  <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
-);
+import WeightDailyTargetCard from "./WeightDailyTargetCard";
 
 export default function WeightControl({ user }) {
+  const [weightLogs, setWeightLogs] = useState([]);
   const [goal, setGoal] = useState(null);
-  const [logs, setLogs] = useState([]);
-  const [dailyTargets, setDailyTargets] = useState([]);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!user?.uid) return;
 
-    const goalRef = doc(db, "users", user.uid, "weight", "goal");
+    const goalRef = doc(db, "users", user.uid, "weightGoal", "current");
+    const goalSnap = await getDoc(goalRef);
+    if (goalSnap.exists()) {
+      setGoal(goalSnap.data());
+    } else {
+      setGoal(null);
+    }
+
     const logsRef = collection(db, "users", user.uid, "weightLogs");
+    const logsSnap = await getDocs(logsRef);
+    const logs = logsSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setWeightLogs(logs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
+  };
 
-    const unsubGoal = onSnapshot(goalRef, (snap) => {
-      if (snap.exists()) {
-        const goalData = snap.data();
-        setGoal(goalData);
-
-        // генерируем цели на каждый день
-        const days = [];
-        const start = new Date(goalData.startDate);
-        const end = new Date(goalData.endDate);
-        const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        const totalDelta = goalData.startWeight - goalData.goalWeight;
-
-        for (let i = 0; i <= totalDays; i++) {
-          const date = new Date(start);
-          date.setDate(start.getDate() + i);
-          const expected = goalData.startWeight - (totalDelta / totalDays) * i;
-          const isoDate = date.toISOString().split("T")[0];
-          const log = logs.find((l) => l.date === isoDate);
-          days.push({
-            date: isoDate,
-            expected,
-            actual: log?.weight,
-          });
-        }
-        setDailyTargets(days);
-      } else {
-        setGoal(null);
-        setDailyTargets([]);
-      }
-    });
-
-    const unsubLogs = onSnapshot(
-      query(logsRef, orderBy("timestamp", "desc")),
-      (snap) => {
-        const logsData = snap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date
-        }));
-        setLogs(logsData);
-      }
-    );
-
-    return () => {
-      unsubGoal();
-      unsubLogs();
-    };
+  useEffect(() => {
+    fetchData();
   }, [user]);
 
   return (
-    <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">🎯 Контроль веса</h1>
+    <div className="max-w-md mx-auto px-4 py-6">
+      <h1 className="text-2xl font-bold mb-4 text-center">⚖️ Контроль веса</h1>
 
-      {/* Установка цели */}
-      <GoalSetup user={user} currentGoal={goal} />
+      {/* Цель */}
+      <GoalSetup user={user} onUpdate={fetchData} />
 
-      {/* Цель (если задана) */}
-      {goal && (
-        <>
-          <WeightGoalCard data={goal} />
-          <WeightDailyTargetCard
-            data={dailyTargets}
-            currentWeight={logs?.[0]?.weight || goal.startWeight}
-            startWeight={goal.startWeight}
-            goalWeight={goal.goalWeight}
-          />
-          <WeightLogCard user={user} logs={logs} />
-        </>
-      )}
+      {/* Текущая цель */}
+      {goal && <WeightGoalCard goal={goal} />}
+
+      {/* Цели на день */}
+      {goal && <WeightDailyTargetCard user={user} goal={goal} logs={weightLogs} />}
+
+      {/* История */}
+      <WeightLogCard user={user} logs={weightLogs} onUpdate={fetchData} />}
     </div>
   );
 }
