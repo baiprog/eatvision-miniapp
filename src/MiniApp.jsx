@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import ProfileView from './ProfileView';
 import LoginRegister from './LoginRegister';
+import WeightControl from './WeightControl';
 import { Home, Plus, User } from "lucide-react";
 import { db } from './firebase';
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -14,7 +15,7 @@ const Card = ({ children }) => (
 const CardContent = ({ children }) => <div>{children}</div>;
 
 export default function MiniApp() {
-  const [tab, setTab] = useState("upload");
+  const [tab, setTab] = useState("home");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [splash, setSplash] = useState(true);
@@ -94,14 +95,11 @@ export default function MiniApp() {
       />
       <div className="h-screen overflow-hidden flex flex-col justify-between bg-white">
         <div className="flex-1 overflow-y-auto p-4">
-          {tab === "home" && (
-            <div className="text-center text-gray-500">Лента будет позже</div>
-          )}
+          {tab === "home" && <WeightControl user={user} />}
 
           {tab === "upload" && (
             <div className="flex flex-col items-center gap-4">
               <h1 className="text-2xl font-bold">🥗 Анализ еды</h1>
-
               <div className="w-full max-w-md">
                 <img
                   src="/img/checkmain.png"
