@@ -6,12 +6,13 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import Modal from "./Modal"; // убедись, что у тебя есть Modal.jsx
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
 );
 
-const MealCard = ({ image, title, kcal }) => (
+const MealCard = ({ image, title, kcal, onClick }) => (
   <div className="flex items-center gap-3 border rounded-xl p-2">
     <img
       src={image}
@@ -24,13 +25,16 @@ const MealCard = ({ image, title, kcal }) => (
         {kcal ? `${kcal} ккал` : "— ккал"}
       </div>
     </div>
-    <button className="text-xs text-blue-500 font-medium">Подробнее</button>
+    <button className="text-xs text-blue-500 font-medium" onClick={onClick}>
+      Подробнее
+    </button>
   </div>
 );
 
 export default function MealPlanSection({ user }) {
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState(null);
 
   const fetchPlan = async (regenerate = false) => {
     if (!user?.uid) return;
@@ -57,18 +61,14 @@ export default function MealPlanSection({ user }) {
       setLoading(true);
       const res = await fetch("https://gpt4-vision-proxy.onrender.com/plan", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
 
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content || "";
-
       const match = content.match(/```json\s*([\s\S]*?)```/i);
       const jsonText = match ? match[1] : content;
-
       const parsed = JSON.parse(jsonText);
 
       if (!Array.isArray(parsed)) {
@@ -94,32 +94,47 @@ export default function MealPlanSection({ user }) {
   }, [user]);
 
   return (
-    <Card>
-      <div className="flex justify-between items-center mb-2">
-        <div className="font-bold text-lg">🍽 План питания</div>
-        <button
-          className="text-sm text-blue-500"
-          onClick={() => fetchPlan(true)}
-        >
-          🔄 Обновить
-        </button>
-      </div>
+    <>
+      <Card>
+        <div className="flex justify-between items-center mb-2">
+          <div className="font-bold text-lg">🍽 План питания</div>
+          <button
+            className="text-sm text-blue-500"
+            onClick={() => fetchPlan(true)}
+          >
+            🔄 Обновить
+          </button>
+        </div>
 
-      {loading ? (
-        <p className="text-sm text-gray-500">⏳ Генерируем план питания...</p>
-      ) : Array.isArray(meals) && meals.length > 0 ? (
-        meals.map((meal, i) => (
-          <MealCard
-            key={i}
-            title={meal.title}
-            kcal={meal.kcal}
-            image={`https://source.unsplash.com/100x100/?food,${encodeURIComponent(meal.title)}&sig=${i}`}
-          />
-        ))
-      ) : (
-        <p className="text-sm text-gray-400">План питания не найден</p>
-      )}
-    </Card>
+        {loading ? (
+          <p className="text-sm text-gray-500">⏳ Генерируем план питания...</p>
+        ) : Array.isArray(meals) && meals.length > 0 ? (
+          meals.map((meal, i) => (
+            <MealCard
+              key={i}
+              title={meal.title}
+              kcal={meal.kcal}
+              image={`https://source.unsplash.com/100x100/?food,${encodeURIComponent(meal.title)}&sig=${i}`}
+              onClick={() => setSelectedMeal(meal)}
+            />
+          ))
+        ) : (
+          <p className="text-sm text-gray-400">План питания не найден</p>
+        )}
+      </Card>
+
+      <Modal isOpen={!!selectedMeal} onClose={() => setSelectedMeal(null)}>
+        {selectedMeal && (
+          <div className="space-y-2">
+            <h2 className="text-lg font-bold">{selectedMeal.title}</h2>
+            <p className="text-sm text-gray-600">{selectedMeal.kcal} ккал</p>
+            <p className="text-sm text-gray-500">
+              Здесь можно добавить описание, ссылку на продукт и сравнение по цене.
+            </p>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }
 
