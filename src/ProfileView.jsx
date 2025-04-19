@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Pencil } from "lucide-react";
 import {
   collection,
@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
+import { Dialog, Transition } from "@headlessui/react";
 import { db } from "./firebase";
 import EditProfileModal from "./EditProfileModal";
 import MealPlanSection from "./MealPlanSection";
@@ -20,6 +21,7 @@ export default function ProfileView({ user }) {
   const [userInfo, setUserInfo] = useState(null);
   const [generations, setGenerations] = useState([]);
   const [editOpen, setEditOpen] = useState(false);
+  const [selectedGen, setSelectedGen] = useState(null);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -70,14 +72,10 @@ export default function ProfileView({ user }) {
           </button>
         </div>
         <div className="text-sm text-gray-700 leading-relaxed">
-          Вес: <b>{userInfo.weight} кг</b>
-          <br />
-          Рост: <b>{userInfo.height} см</b>
-          <br />
-          Возраст: <b>{userInfo.age}</b>
-          <br />
-          Активность: <b>{userInfo.activity}</b>
-          <br />
+          Вес: <b>{userInfo.weight} кг</b><br />
+          Рост: <b>{userInfo.height} см</b><br />
+          Возраст: <b>{userInfo.age}</b><br />
+          Активность: <b>{userInfo.activity}</b><br />
           Цель: <b>{userInfo.goal}</b>
         </div>
       </Card>
@@ -109,7 +107,13 @@ export default function ProfileView({ user }) {
                 <div className="text-xs text-gray-400">
                   {gen.createdAt?.toDate?.().toLocaleString()}
                 </div>
-                <div className="whitespace-pre-wrap mt-1">{gen.resultText}</div>
+                <div className="line-clamp-3 whitespace-pre-wrap mt-1">{gen.resultText}</div>
+                <button
+                  onClick={() => setSelectedGen(gen)}
+                  className="mt-2 text-xs text-blue-500"
+                >
+                  Подробнее
+                </button>
               </div>
             ))}
           </div>
@@ -123,6 +127,46 @@ export default function ProfileView({ user }) {
         userInfo={userInfo}
         onUpdate={setUserInfo}
       />
+
+      <Transition appear show={!!selectedGen} as={Fragment}>
+        <Dialog onClose={() => setSelectedGen(null)} className="relative z-50">
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/40" />
+          </Transition.Child>
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-md bg-white rounded-xl p-6 shadow-xl">
+                <Dialog.Title className="text-lg font-bold mb-2">Результат анализа</Dialog.Title>
+                <pre className="whitespace-pre-wrap text-sm text-gray-700 mb-4">
+                  {selectedGen?.resultText}
+                </pre>
+                <button
+                  onClick={() => setSelectedGen(null)}
+                  className="mt-2 px-4 py-2 bg-black text-white rounded-xl text-sm"
+                >
+                  Закрыть
+                </button>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 }

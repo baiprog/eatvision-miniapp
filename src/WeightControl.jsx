@@ -48,7 +48,7 @@ export default function WeightControl({ user }) {
       {goal && <WeightDailyTargetCard user={user} goal={goal} logs={weightLogs} />}
 
       {/* История */}
-      <WeightLogCard user={user} logs={weightLogs} onUpdate={fetchData} />}
+      <WeightLogCard user={user} logs={weightLogs} onUpdate={fetchData} />
     </div>
   );
 }
