@@ -12,18 +12,32 @@ const MACROS_LABELS = {
   fats: "Жиры"
 };
 
-// Парсер макросов из текста ответа GPT
-function parseMacrosFromText(text) {
-  const cals = Number((text.match(/Кал[оа]р[ии][иы]?:?\s*(\d+)/i) || [])[1]) || 0;
-  const prot = Number((text.match(/Белк[иов]:?\s*(\d+)/i) || [])[1]) || 0;
-  const fats = Number((text.match(/Жир[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
-  const carb = Number((text.match(/Углевод[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
-  return { calories: cals, protein: prot, fats: fats, carbs: carb };
+// --- Новый универсальный извлекатель названия блюда (строгое начало) ---
+function extractDishTitle(gptText) {
+  if (!gptText) return '';
+  // Если есть "Блюдо: ...", строго берем только это!
+  const dishMatch = gptText.match(/Блюдо:\s*([^\n,.]+)/i);
+  if (dishMatch && dishMatch[1]) {
+    return dishMatch[1].trim().slice(0, 30);
+  }
+  // Если после "Блюдо:" идет дефис или описание, отрезаем по первой точке/запятой/двоеточию
+  const genericMatch = gptText.match(/^([А-ЯA-Z][а-яa-z\s\-]+)[,.:\n]/);
+  if (genericMatch && genericMatch[1]) {
+    return genericMatch[1].trim().slice(0, 30);
+  }
+  // Если часто встречается "на фотографии изображено:" и после сразу название блюда (до точки/запятой)
+  const photoMatch = gptText.match(/(?:на фотографии (?:изображен[ао]?|показано):?\s*)(.*?)([.,:;\n]|$)/i);
+  if (photoMatch && photoMatch[1]) {
+    // Возьмем только до первой запятой/точки
+    return photoMatch[1].trim().slice(0, 30);
+  }
+  // В остальных случаях — первое предложение или до первой запятой, максимум 2 слова и 30 символов
+  return gptText.replace(/^На фотографии.*?:?\s*/i, '').split(/[\n,.!]/)[0].split(' ').slice(0, 3).join(' ').trim().slice(0, 30);
 }
 
-// Круглый прогрессбар для макроэлементов
+// --- Круглый прогрессбар для макроэлементов и калорий ---
 function MacroCircle({ value, total, label, color }) {
-  const used = Math.max(0, Math.min(value, total));
+  // value — сколько употреблено (а не осталось!)
   const percent = total === 0 ? 0 : Math.max(0, Math.min(1, value / total));
   const radius = 28, stroke = 6, circ = 2 * Math.PI * radius;
   return (
@@ -48,47 +62,6 @@ function MacroCircle({ value, total, label, color }) {
       <div className="text-xs mt-1">{label}</div>
     </div>
   );
-}
-
-// Кольцевой прогрессбар калорий
-function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
-  const used = caloriesTotal - caloriesLeft;
-  const percent = caloriesTotal === 0 ? 0 : Math.max(0, Math.min(1, used / caloriesTotal));
-  const radius = 36, stroke = 6, circ = 2 * Math.PI * radius;
-  return (
-    <svg width="80" height="80" className="mr-2">
-      <circle cx="40" cy="40" r={radius} stroke="#eee" strokeWidth={stroke} fill="none"/>
-      <circle
-        cx="40"
-        cy="40"
-        r={radius}
-        stroke="#fdba74"
-        strokeWidth={stroke}
-        fill="none"
-        strokeDasharray={circ}
-        strokeDashoffset={circ * (1 - percent)}
-        strokeLinecap="round"
-      />
-      <text x="50%" y="55%" textAnchor="middle" fontSize="1.3em" fontWeight="bold" fill="#fdba74">{Math.max(0, caloriesLeft)}</text>
-    </svg>
-  );
-}
-
-// Функция для короткого и чистого названия блюда
-function extractDishTitle(gptText) {
-  if (!gptText) return '';
-  // 1. Пробуем найти "Блюдо: ..." (желательно добавить это в промпт GPT!)
-  const matchDish = gptText.match(/Блюдо:?\s*([^\n,.]+)/i);
-  if (matchDish && matchDish[1]) {
-    // Берём только первые 25 символов, удаляя лишние пояснения после запятой
-    return matchDish[1].split(',')[0].split('.')[0].trim().slice(0, 25);
-  }
-  // 2. Популярные блюда (борщ, паста, салат...)
-  const match = gptText.match(/(борщ|суп|каша|плов|яичница|омлет|паста [а-яa-z]+|паста|салат|котлета|пюре|гречка|макароны|картошка|шашлык|стейк|рис|булгур|чечевица)/i);
-  if (match) return match[0].charAt(0).toUpperCase() + match[0].slice(1, 25);
-  // 3. Обрезаем до 2 слов и 25 символов (если GPT совсем фантазирует)
-  const arr = gptText.replace(/^На фотографии.*?:?\s*/i, '').split(/[,.!?\n]/)[0].trim().split(' ').slice(0, 2);
-  return arr.join(' ').slice(0, 25);
 }
 
 // История загрузок еды (только названия блюд)
@@ -126,6 +99,15 @@ function HistoryList({ user }) {
       })}
     </div>
   );
+}
+
+// Парсер макросов из текста ответа GPT
+function parseMacrosFromText(text) {
+  const cals = Number((text.match(/Кал[оа]р[ии][иы]?:?\s*(\d+)/i) || [])[1]) || 0;
+  const prot = Number((text.match(/Белк[иов]:?\s*(\d+)/i) || [])[1]) || 0;
+  const fats = Number((text.match(/Жир[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
+  const carb = Number((text.match(/Углевод[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
+  return { calories: cals, protein: prot, fats: fats, carbs: carb };
 }
 
 const Button = ({ children, ...props }) => (
@@ -215,9 +197,9 @@ export default function MiniApp() {
     reader.onloadend = async () => {
       const base64 = reader.result.split(",")[1];
       try {
-        // !!! Добавляем специальный промпт для корректного названия блюда
+        // Промпт для GPT для строгого формата начала!
         const PROMPT = `
-Пожалуйста, всегда начинай ответ с названия блюда строго на одной строке в формате:
+Всегда начинай ответ с названия блюда на одной строке строго в формате:
 Блюдо: [название блюда]
 
 Затем дай описание блюда, состав, калории, белки, жиры и углеводы.
@@ -296,13 +278,33 @@ export default function MiniApp() {
                   </div>
                 </div>
               </div>
-              {/* Calories left + прогрессбар */}
+              {/* Ккал, белки, углеводы, жиры — КРУГИ */}
               <div className="flex justify-center my-4">
-                <div className="bg-white rounded-2xl shadow-md p-4 flex items-center gap-4 w-11/12 max-w-md">
-                  <CalorieProgressBar caloriesLeft={Math.max(0, caloriesLeft)} caloriesTotal={caloriesTotal} />
+                <div className="bg-white rounded-2xl shadow-md p-4 flex items-center gap-6 w-11/12 max-w-md">
+                  {/* Ккал круг как MacroCircle! */}
+                  <div className="flex flex-col items-center">
+                    <svg width="64" height="64">
+                      <circle cx="32" cy="32" r="28" stroke="#eee" strokeWidth="6" fill="none" />
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="28"
+                        stroke="#fdba74"
+                        strokeWidth="6"
+                        fill="none"
+                        strokeDasharray={2 * Math.PI * 28}
+                        strokeDashoffset={(2 * Math.PI * 28) * (1 - Math.max(0, Math.min(1, sumCalories / caloriesTotal)))}
+                        strokeLinecap="round"
+                      />
+                      <text x="50%" y="54%" textAnchor="middle" fontSize="1.1em" fontWeight="bold" fill="#fdba74">
+                        {Math.min(sumCalories, caloriesTotal)}
+                      </text>
+                    </svg>
+                    <div className="text-xs mt-1">Ккал</div>
+                  </div>
                   <div>
-                    <div className="text-4xl font-bold">{Math.max(0, caloriesLeft)}</div>
-                    <div className="text-gray-500 text-lg">Ккал осталось</div>
+                    <div className="text-3xl font-bold">{Math.max(0, caloriesTotal - sumCalories)}</div>
+                    <div className="text-gray-500 text-md">Ккал осталось</div>
                   </div>
                 </div>
               </div>
