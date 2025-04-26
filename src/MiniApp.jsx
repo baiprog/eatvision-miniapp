@@ -5,44 +5,66 @@ import { Home, Plus, User } from "lucide-react";
 import { db } from './firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDoc, onSnapshot } from "firebase/firestore";
 
-// --- СУПЕР парсер названия блюда ---
-function extractDishTitle(gptText) {
-  if (!gptText) return '';
+// ---- Расширяем список бан-слов и еды ----
+const banWords = [
+  "кухни", "тарелка", "блюдо", "блюда", "напиток", "суп", "основа", "основе", "традиционное",
+  "популярное", "представлено", "изображено", "показано", "порция", "порции", "основной", "из"
+];
 
-  // 1. "похожее на ...", "похоже на ..."
-  const likeMatch = gptText.match(/пох[ао]ж[еа] на\s+([а-яa-zё\- ]{3,50})[.,;]?/i);
-  if (likeMatch && likeMatch[1]) {
-    return capitalizeFirst(likeMatch[1].trim().split(' ').slice(0, 3).join(' '));
-  }
-
-  // 2. "Блюдо: ..." (строгое форматирование, если есть)
-  const dishMatch = gptText.match(/Блюдо:\s*([^\n,.():;]+)/i);
-  if (dishMatch && dishMatch[1]) {
-    return capitalizeFirst(dishMatch[1].trim().replace(/^[-—–]+/, ''));
-  }
-
-  // 3. "блюдо ..." (НЕ "похожее на ..."), но после слова "блюдо"
-  const looseDish = gptText.match(/блюдо[^а-яa-zA-Z0-9]+([а-яa-zA-Zё0-9\- ]{3,50})[.,;]?/i);
-  if (looseDish && looseDish[1] && !looseDish[1].toLowerCase().includes('похож')) {
-    return capitalizeFirst(looseDish[1].trim().split(' ').slice(0, 3).join(' '));
-  }
-
-  // 4. После "на изображении", "представлено", "изображено"
-  const generalMatch = gptText.match(/(?:на изображени[ие]|представлен[ао]?|изображен[ао]?)[^а-яa-zA-Z0-9]+([а-яa-zA-Zё\- ]{3,50})[.,;]?/i);
-  if (generalMatch && generalMatch[1]) {
-    return capitalizeFirst(generalMatch[1].trim().split(' ').slice(0, 3).join(' '));
-  }
-
-  // 5. Просто взять первое значимое слово из первой строки
-  let line = gptText.split('\n')[0].trim();
-  line = line.replace(/^[^а-яa-zA-Z0-9]+/, '').trim();
-  line = line.split(/[.,;-]/)[0].trim();
-  return capitalizeFirst(line.split(' ').slice(0, 2).join(' ')) || 'Блюдо';
-}
+const foodList = [
+  "борщ", "паста карбонара", "карбонара", "пицца", "спагетти", "плов", "каша", "рис", "салат", "окрошка",
+  "омлет", "яичница", "шашлык", "гречка", "чечевица", "булгур", "жаркое", "котлета", "пюре",
+  "стейк", "бифштекс", "макароны", "чебурек", "бургер", "сэндвич", "картофель", "сырники",
+  "вареники", "блины", "рулет", "йогурт", "смузи", "суп", "соус", "кукуруза", "горох", "тыква",
+  "овощи", "фрукты", "сыр", "колбаса", "бекон", "курица", "говядина", "свинина", "индейка",
+  "рыба", "треска", "лосось", "форель", "селедка", "молоко", "кефир", "морс", "компот", "сок",
+  "чай", "кофе", "капучино", "латте", "американо", "какао", "вода", "лимонад", "узвар", "квас"
+];
 
 function capitalizeFirst(str) {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function findFoodWord(text) {
+  const lower = text.toLowerCase();
+  for (let food of foodList) {
+    if (lower.includes(food)) return food;
+  }
+  return null;
+}
+
+// --- Новый парсер названия блюда ---
+function extractDishTitle(gptText) {
+  if (!gptText) return '';
+
+  // 1. Строго "Блюдо: ..."
+  const dishMatch = gptText.match(/Блюдо:\s*([^\n,.:;]+)/i);
+  if (dishMatch && dishMatch[1]) {
+    return capitalizeFirst(dishMatch[1].replace(/^[^а-яa-zA-Zё0-9]+/g, '').trim());
+  }
+
+  // 2. "похож на ..." / "похоже на ..."
+  const likeMatch = gptText.match(/пох[ао]ж[еа]? на\s+([а-яa-zA-Zё\- ]{3,50})[.,;]?/i);
+  if (likeMatch && likeMatch[1]) {
+    return capitalizeFirst(likeMatch[1].trim().split(' ').slice(0, 3).join(' '));
+  }
+
+  // 3. После "изображен", "представлен", "показан" — ищем первое кулинарное слово из списка
+  const afterImage = gptText.match(/(?:изображен[ао]?|представлен[ао]?|показан[ао]?|изображении)[^а-яa-zA-Zё0-9]+(.+?)[.,;:\n]/i);
+  if (afterImage && afterImage[1]) {
+    const foodWord = findFoodWord(afterImage[1]);
+    if (foodWord) return capitalizeFirst(foodWord);
+  }
+
+  // 4. Весь текст — ищем известное блюдо из списка
+  const foodWord = findFoodWord(gptText);
+  if (foodWord) return capitalizeFirst(foodWord);
+
+  // 5. На всякий случай — первое "сильное" слово (без "кухни", "тарелка" и пр.)
+  let line = gptText.split('\n')[0].replace(/^На фотографии.*?:?\s*/i, '').trim();
+  const firstFoodLike = line.split(' ').find(w => w.length > 3 && !banWords.includes(w.toLowerCase()));
+  return capitalizeFirst(firstFoodLike) || "Блюдо";
 }
 
 // --- Круглый прогрессбар для макроэлементов и калорий ---
@@ -290,7 +312,7 @@ export default function MiniApp() {
                   {/* Ккал круг как MacroCircle! */}
                   <MacroCircle value={sumCalories} total={caloriesTotal} label="Ккал" color="#fdba74" />
                   <div>
-                    <div className="text-3xl font-bold">{Math.max(0, caloriesTotal - sumCalories)}</div>
+                    <div className="text-3xl font-bold">{caloriesLeft}</div>
                     <div className="text-gray-500 text-md">Ккал осталось</div>
                   </div>
                 </div>
