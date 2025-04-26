@@ -7,15 +7,24 @@ import { db } from './firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { useCollection } from 'react-firebase-hooks/firestore';
 
-const Button = ({ children, ...props }) => (
-  <button className="px-4 py-2 bg-black text-white rounded-xl" {...props}>{children}</button>
-);
-const Card = ({ children }) => (
-  <div className="border border-gray-200 rounded-xl bg-gray-50 p-4 my-2">{children}</div>
-);
-const CardContent = ({ children }) => <div>{children}</div>;
+// Индикатор для макроэлементов
+function MacroBox({ name, value }) {
+  const isOver = value < 0;
+  const color =
+    name === "Protein" ? (isOver ? "text-red-500" : "text-red-700")
+    : name === "Carbs" ? (isOver ? "text-yellow-600" : "text-yellow-700")
+    : (isOver ? "text-blue-600" : "text-blue-700");
+  return (
+    <div className="flex flex-col items-center bg-white rounded-xl p-2 min-w-[80px]">
+      <span className="text-xs text-gray-400">{name}</span>
+      <span className={`text-lg font-semibold ${color}`}>
+        {Math.abs(value)}g {isOver ? "over" : "left"}
+      </span>
+    </div>
+  );
+}
 
-// --- Кольцевой прогрессбар калорий ---
+// Кольцевой прогрессбар калорий
 function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
   const used = caloriesTotal - caloriesLeft;
   const percent = Math.max(0, Math.min(1, used / caloriesTotal));
@@ -39,21 +48,20 @@ function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
   );
 }
 
-// --- Макро-бокс (белки, углеводы, жиры) ---
-function MacroBox({ name, value, over }) {
-  const color =
-    name === "Protein" ? "text-red-500"
-    : name === "Carbs" ? "text-yellow-600"
-    : "text-blue-600";
-  return (
-    <div className="flex flex-col items-center bg-white rounded-xl p-2 min-w-[80px]">
-      <span className="text-xs text-gray-400">{name}</span>
-      <span className={`text-lg font-semibold ${color}`}>{Math.abs(value)}g {over ? "over" : "left"}</span>
-    </div>
-  );
+// Функция для извлечения чистого названия блюда из ответа GPT
+function extractDishTitle(gptText) {
+  if (!gptText) return '';
+  // 1. После "На фотографии изображен(о/а):" или "Изображено:" — до точки
+  const match = gptText.match(/(?:На фотографии (?:изображен[ао]?|показано):?\s*|Изображено:?\s*)(.*?)(\.|$)/i);
+  if (match && match[1]) return match[1].trim();
+  // 2. Если есть строка "Блюдо:" — используем её
+  const match2 = gptText.match(/Блюдо:?\s*(.*)/i);
+  if (match2 && match2[1]) return match2[1].split('.')[0].trim();
+  // 3. По дефолту — первая строка, но без "На фотографии..."
+  return gptText.replace(/^На фотографии.*?:?\s*/i, '').split('\n')[0].split('.')[0].trim();
 }
 
-// --- История загрузок еды ---
+// История загрузок еды (только названия блюд)
 function HistoryList({ user }) {
   const [docs, loading] = useCollection(
     user && query(
@@ -67,18 +75,16 @@ function HistoryList({ user }) {
     <div className="space-y-3">
       {docs.docs.map((doc) => {
         const item = doc.data();
-        // Попробуем выделять название блюда первой строкой (обычно GPT так пишет)
-        const firstLine = item.resultText?.split('\n')[0]?.slice(0,40) || 'Еда';
-        // Можешь доработать парсер для ккал/бжу из текста (сейчас просто пример)
         return (
           <div key={doc.id} className="flex items-center bg-white rounded-xl shadow-sm p-3">
             <img src={item.image} alt="Food" className="w-14 h-14 rounded-lg object-cover mr-3"/>
             <div className="flex-1">
-              <div className="font-semibold truncate">{firstLine}</div>
-              <div className="text-xs text-gray-400">{item.createdAt?.toDate?.().toLocaleTimeString?.() || ""}</div>
-              {/* <div className="flex gap-2 mt-1 text-xs text-gray-700">
-                <span>🔥 120 ккал</span> <span>🥩 12g</span> ...
-              </div> */}
+              <div className="font-semibold truncate">
+                {extractDishTitle(item.resultText) || "Еда"}
+              </div>
+              <div className="text-xs text-gray-400">
+                {item.createdAt?.toDate?.().toLocaleTimeString?.() || ""}
+              </div>
             </div>
           </div>
         );
@@ -86,6 +92,14 @@ function HistoryList({ user }) {
     </div>
   );
 }
+
+const Button = ({ children, ...props }) => (
+  <button className="px-4 py-2 bg-black text-white rounded-xl" {...props}>{children}</button>
+);
+const Card = ({ children }) => (
+  <div className="border border-gray-200 rounded-xl bg-gray-50 p-4 my-2">{children}</div>
+);
+const CardContent = ({ children }) => <div>{children}</div>;
 
 export default function MiniApp() {
   const [tab, setTab] = useState("home");
@@ -95,13 +109,12 @@ export default function MiniApp() {
   const [user, setUser] = useState(null);
   const fileInputRef = useRef(null);
 
-  // --- Моки для примера, тут должны быть твои данные пользователя ---
-  // Можно брать реальные значения из профиля (firestore) если есть
-  const caloriesTotal = user?.caloriesTotal || 2000;   // суточная цель
-  const caloriesLeft = user?.caloriesLeft || 1250;     // осталось сегодня
-  const proteinLeft  = user?.proteinLeft  ?? 48;       // белки
-  const carbsLeft    = user?.carbsLeft    ?? 89;       // углеводы
-  const fatsLeft     = user?.fatsLeft     ?? 48;       // жиры
+  // Моки для примера — замени на реальные данные пользователя (или подтяни из профиля)
+  const caloriesTotal = user?.caloriesTotal || 2000;
+  const caloriesLeft = user?.caloriesLeft || 1250;
+  const proteinLeft  = user?.proteinLeft  ?? 48;
+  const carbsLeft    = user?.carbsLeft    ?? 89;
+  const fatsLeft     = user?.fatsLeft     ?? 48;
 
   useEffect(() => {
     const timer = setTimeout(() => setSplash(false), 1800);
@@ -176,7 +189,7 @@ export default function MiniApp() {
       />
       <div className="h-screen overflow-hidden flex flex-col justify-between bg-white">
         <div className="flex-1 overflow-y-auto p-2 pb-20">
-          {/* --- Главный новый экран --- */}
+          {/* Главный новый экран */}
           {tab === "home" && (
             <div>
               {/* Header */}
@@ -207,7 +220,7 @@ export default function MiniApp() {
               </div>
               {/* Макросы */}
               <div className="flex justify-around my-2 max-w-md mx-auto">
-                <MacroBox name="Protein" value={proteinLeft} over={proteinLeft < 0} />
+                <MacroBox name="Protein" value={proteinLeft} />
                 <MacroBox name="Carbs" value={carbsLeft} />
                 <MacroBox name="Fats" value={fatsLeft} />
               </div>
@@ -219,7 +232,7 @@ export default function MiniApp() {
             </div>
           )}
 
-          {/* --- Анализ еды (фото) --- */}
+          {/* Анализ еды (фото) */}
           {tab === "upload" && (
             <div className="flex flex-col items-center gap-4">
               <h1 className="text-2xl font-bold">🥗 Анализ еды</h1>
@@ -243,11 +256,11 @@ export default function MiniApp() {
             </div>
           )}
 
-          {/* --- Профиль --- */}
+          {/* Профиль */}
           {tab === "profile" && <ProfileView user={user} />}
         </div>
 
-        {/* --- Нижняя навигация --- */}
+        {/* Нижняя навигация */}
         <div className="fixed left-0 right-0 bottom-0 border-t p-2 flex justify-around bg-white shadow-xl z-10 rounded-t-2xl">
           <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 ${tab === "home" ? "text-black" : ""}`}>
             <Home size={24} />
