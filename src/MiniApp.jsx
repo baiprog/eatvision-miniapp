@@ -4,22 +4,39 @@ import LoginRegister from './LoginRegister';
 import WeightControl from './WeightControl';
 import { Home, Plus, User } from "lucide-react";
 import { db } from './firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
-import { useCollection } from 'react-firebase-hooks/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDoc, onSnapshot } from "firebase/firestore";
+
+// ===== Парсер макросов из текста ответа GPT (можно улучшить под твой реальный формат) =====
+function parseMacrosFromText(text) {
+  // Находит "Калории: 500 ккал", "Белки: 20 г", "Жиры: 10 г", "Углеводы: 40 г"
+  const cals = Number((text.match(/Кал[оа]р[ии][иы]?:?\s*(\d+)/i) || [])[1]) || 0;
+  const prot = Number((text.match(/Белк[иов]:?\s*(\d+)/i) || [])[1]) || 0;
+  const fats = Number((text.match(/Жир[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
+  const carb = Number((text.match(/Углевод[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
+  return { calories: cals, protein: prot, fats: fats, carbs: carb };
+}
 
 // Индикатор для макроэлементов
-function MacroBox({ name, value }) {
+function MacroBox({ name, value, total }) {
   const isOver = value < 0;
+  const percent = Math.max(0, Math.min(1, (total - value) / total));
   const color =
     name === "Protein" ? (isOver ? "text-red-500" : "text-red-700")
     : name === "Carbs" ? (isOver ? "text-yellow-600" : "text-yellow-700")
     : (isOver ? "text-blue-600" : "text-blue-700");
   return (
-    <div className="flex flex-col items-center bg-white rounded-xl p-2 min-w-[80px]">
+    <div className="flex flex-col items-center bg-white rounded-xl p-2 min-w-[80px] relative">
       <span className="text-xs text-gray-400">{name}</span>
       <span className={`text-lg font-semibold ${color}`}>
         {Math.abs(value)}g {isOver ? "over" : "left"}
       </span>
+      {/* Прогресс-полоска снизу */}
+      <div className="absolute bottom-1 left-2 right-2 h-1 bg-gray-200 rounded-full overflow-hidden">
+        <div
+          className={`h-full ${name === "Protein" ? "bg-red-300" : name === "Carbs" ? "bg-yellow-200" : "bg-blue-200"}`}
+          style={{ width: `${Math.min(100, percent * 100)}%` }}
+        ></div>
+      </div>
     </div>
   );
 }
@@ -36,14 +53,14 @@ function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
         cx="40"
         cy="40"
         r={radius}
-        stroke="#111"
+        stroke="#fdba74"
         strokeWidth={stroke}
         fill="none"
         strokeDasharray={circ}
         strokeDashoffset={circ * (1 - percent)}
         strokeLinecap="round"
       />
-      <text x="50%" y="55%" textAnchor="middle" fontSize="1.3em" fontWeight="bold" fill="#111">{caloriesLeft}</text>
+      <text x="50%" y="55%" textAnchor="middle" fontSize="1.3em" fontWeight="bold" fill="#fdba74">{caloriesLeft}</text>
     </svg>
   );
 }
@@ -51,29 +68,31 @@ function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
 // Функция для извлечения чистого названия блюда из ответа GPT
 function extractDishTitle(gptText) {
   if (!gptText) return '';
-  // 1. После "На фотографии изображен(о/а):" или "Изображено:" — до точки
   const match = gptText.match(/(?:На фотографии (?:изображен[ао]?|показано):?\s*|Изображено:?\s*)(.*?)(\.|$)/i);
   if (match && match[1]) return match[1].trim();
-  // 2. Если есть строка "Блюдо:" — используем её
   const match2 = gptText.match(/Блюдо:?\s*(.*)/i);
   if (match2 && match2[1]) return match2[1].split('.')[0].trim();
-  // 3. По дефолту — первая строка, но без "На фотографии..."
   return gptText.replace(/^На фотографии.*?:?\s*/i, '').split('\n')[0].split('.')[0].trim();
 }
 
 // История загрузок еды (только названия блюд)
 function HistoryList({ user }) {
-  const [docs, loading] = useCollection(
-    user && query(
+  const [docs, setDocs] = useState([]);
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(
       collection(db, "users", user.uid, "generations"),
       orderBy("createdAt", "desc")
-    )
-  );
-  if (loading) return <div className="text-gray-400 text-center">Загрузка...</div>;
-  if (!docs?.docs?.length) return <div className="text-gray-400 text-center">Пока нет загрузок</div>;
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setDocs(snapshot.docs);
+    });
+    return () => unsubscribe();
+  }, [user]);
+  if (!docs?.length) return <div className="text-gray-400 text-center">Пока нет загрузок</div>;
   return (
     <div className="space-y-3">
-      {docs.docs.map((doc) => {
+      {docs.map((doc) => {
         const item = doc.data();
         return (
           <div key={doc.id} className="flex items-center bg-white rounded-xl shadow-sm p-3">
@@ -107,14 +126,61 @@ export default function MiniApp() {
   const [loading, setLoading] = useState(false);
   const [splash, setSplash] = useState(true);
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [generations, setGenerations] = useState([]);
   const fileInputRef = useRef(null);
 
-  // Моки для примера — замени на реальные данные пользователя (или подтяни из профиля)
-  const caloriesTotal = user?.caloriesTotal || 2000;
-  const caloriesLeft = user?.caloriesLeft || 1250;
-  const proteinLeft  = user?.proteinLeft  ?? 48;
-  const carbsLeft    = user?.carbsLeft    ?? 89;
-  const fatsLeft     = user?.fatsLeft     ?? 48;
+  // Загрузка профиля пользователя
+  useEffect(() => {
+    if (user?.uid) {
+      getDoc(doc(db, "users", user.uid)).then(docSnap => {
+        if (docSnap.exists()) setProfile(docSnap.data());
+      });
+    }
+  }, [user]);
+
+  // Загрузка генераций
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, "users", user.uid, "generations"),
+      orderBy("createdAt", "desc")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setGenerations(snapshot.docs.map(doc => doc.data()));
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  // Считаем сегодняшние показатели
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const todayGenerations = generations.filter(g => {
+    const d = g.createdAt?.toDate?.();
+    if (!d) return false;
+    return d.toISOString().slice(0, 10) === todayStr;
+  });
+
+  let sumCalories = 0, sumProtein = 0, sumFats = 0, sumCarbs = 0;
+  todayGenerations.forEach(gen => {
+    const parsed = parseMacrosFromText(gen.resultText || "");
+    sumCalories += parsed.calories;
+    sumProtein  += parsed.protein;
+    sumFats     += parsed.fats;
+    sumCarbs    += parsed.carbs;
+  });
+
+  // Нормы из профиля (по расчету в профиле!)
+  const caloriesTotal = profile?.calories || 2000;
+  const proteinTotal = profile?.macros?.protein || 150;
+  const fatsTotal = profile?.macros?.fats || 70;
+  const carbsTotal = profile?.macros?.carbs || 220;
+
+  // Остатки
+  const caloriesLeft = Math.max(0, caloriesTotal - sumCalories);
+  const proteinLeft = Math.max(0, proteinTotal - sumProtein);
+  const fatsLeft = Math.max(0, fatsTotal - sumFats);
+  const carbsLeft = Math.max(0, carbsTotal - sumCarbs);
 
   useEffect(() => {
     const timer = setTimeout(() => setSplash(false), 1800);
@@ -220,9 +286,9 @@ export default function MiniApp() {
               </div>
               {/* Макросы */}
               <div className="flex justify-around my-2 max-w-md mx-auto">
-                <MacroBox name="Protein" value={proteinLeft} />
-                <MacroBox name="Carbs" value={carbsLeft} />
-                <MacroBox name="Fats" value={fatsLeft} />
+                <MacroBox name="Protein" value={proteinLeft} total={proteinTotal} />
+                <MacroBox name="Carbs" value={carbsLeft} total={carbsTotal} />
+                <MacroBox name="Fats" value={fatsLeft} total={fatsTotal} />
               </div>
               {/* История */}
               <div className="px-2 mt-4">
