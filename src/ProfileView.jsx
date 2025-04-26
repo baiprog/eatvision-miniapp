@@ -14,7 +14,7 @@ import { db } from "./firebase";
 import EditProfileModal from "./EditProfileModal";
 import MealPlanSection from "./MealPlanSection";
 
-// Активность — коэффициент и описание
+// Уровни активности
 const ACTIVITY_LEVELS = [
   { value: 1.2, label: "0-1 тренировка/неделя (минимальная)" },
   { value: 1.375, label: "2-3 тренировки/неделя (лёгкая)" },
@@ -28,7 +28,7 @@ const DEFICIT_LEVELS = [
   { value: 700, label: "Быстро (-700 ккал/день)" },
 ];
 
-// BMR Харрис-Бенедикта
+// Формула Харриса-Бенедикта
 function calcBMR({ sex, weight, height, age }) {
   if (sex === "male") {
     return 88.36 + 13.4 * weight + 4.8 * height - 5.7 * age;
@@ -57,7 +57,7 @@ export default function ProfileView({ user }) {
   const [editOpen, setEditOpen] = useState(false);
   const [selectedGen, setSelectedGen] = useState(null);
 
-  // По умолчанию значения для нового пользователя
+  // По умолчанию
   const defaultProfile = {
     sex: "male",
     weight: 70,
@@ -68,7 +68,7 @@ export default function ProfileView({ user }) {
     goal: "Похудение",
   };
 
-  // Загружаем профиль и историю генераций
+  // Загрузка профиля и генераций
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -100,13 +100,36 @@ export default function ProfileView({ user }) {
     // eslint-disable-next-line
   }, [user]);
 
-  // Сохраняем профиль при изменениях
+  // При любом изменении профиля — автосохраняем нормы и макросы
+  useEffect(() => {
+    if (!userInfo || !user?.uid) return;
+    // Переводим значения в цифры (на всякий случай)
+    const activityValue = Number(userInfo.activity) || 1.375;
+    const deficitValue = Number(userInfo.deficit) || 500;
+    const weight = Number(userInfo.weight) || 70;
+    const height = Number(userInfo.height) || 170;
+    const age = Number(userInfo.age) || 25;
+    const sex = userInfo.sex || "male";
+
+    // Расчёт норм
+    const bmr = calcBMR({ sex, weight, height, age });
+    const tdee = calcTDEE(bmr, activityValue);
+    const calories = Math.max(1000, Math.round(tdee - deficitValue));
+    const macros = calcMacros(weight, calories);
+
+    // Сохраняем профиль и нормы в Firestore (merge)
+    setDoc(doc(db, "users", user.uid), {
+      ...userInfo,
+      calories,
+      macros
+    }, { merge: true });
+  }, [userInfo, user]);
+
+  // Обновление и сохранение профиля
   const saveProfile = async (patch) => {
     const updated = { ...userInfo, ...patch };
     setUserInfo(updated);
-    if (user?.uid) {
-      await setDoc(doc(db, "users", user.uid), updated, { merge: true });
-    }
+    // не дожидаемся сохранения — эффект useEffect обновит поля
   };
 
   if (!userInfo) return null;
@@ -119,7 +142,7 @@ export default function ProfileView({ user }) {
   const age = Number(userInfo.age) || 25;
   const sex = userInfo.sex || "male";
 
-  // Расчёт норм
+  // Расчёт норм (они совпадут с теми, что сохранены)
   const bmr = calcBMR({ sex, weight, height, age });
   const tdee = calcTDEE(bmr, activityValue);
   const calories = Math.max(1000, Math.round(tdee - deficitValue));
@@ -154,22 +177,22 @@ export default function ProfileView({ user }) {
           Цель: <b>{userInfo.goal}</b>
         </div>
         {/* Рекомендации по питанию */}
-      <div className="bg-white rounded-2xl shadow p-5 mb-4">
-  <div className="flex items-center gap-2 mb-3">
-    <span className="text-xl">🧑‍⚕️</span>
-    <span className="font-semibold text-gray-700">Рекомендации на сегодня</span>
-  </div>
-  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-base">
-    <div className="text-gray-500">Калории:</div>
-    <div className="font-semibold text-orange-600">{calories} ккал</div>
-    <div className="text-gray-500">Белки:</div>
-    <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.protein} г <span className="text-lg">🥩</span></div>
-    <div className="text-gray-500">Жиры:</div>
-    <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.fats} г <span className="text-lg">🧈</span></div>
-    <div className="text-gray-500">Углеводы:</div>
-    <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.carbs} г <span className="text-lg">🍚</span></div>
-  </div>
-</div>
+        <div className="bg-white rounded-2xl shadow p-5 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xl">🧑‍⚕️</span>
+            <span className="font-semibold text-gray-700">Рекомендации на сегодня</span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-base">
+            <div className="text-gray-500">Калории:</div>
+            <div className="font-semibold text-orange-600">{calories} ккал</div>
+            <div className="text-gray-500">Белки:</div>
+            <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.protein} г <span className="text-lg">🥩</span></div>
+            <div className="text-gray-500">Жиры:</div>
+            <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.fats} г <span className="text-lg">🧈</span></div>
+            <div className="text-gray-500">Углеводы:</div>
+            <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.carbs} г <span className="text-lg">🍚</span></div>
+          </div>
+        </div>
       </Card>
 
       <MealPlanSection user={user} userInfo={{...userInfo, calories, macros}} />

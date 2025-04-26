@@ -1,14 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 import ProfileView from './ProfileView';
 import LoginRegister from './LoginRegister';
-import WeightControl from './WeightControl';
 import { Home, Plus, User } from "lucide-react";
 import { db } from './firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDoc, onSnapshot } from "firebase/firestore";
 
-// ===== Парсер макросов из текста ответа GPT (можно улучшить под твой реальный формат) =====
+// ==== Русские имена для макроэлементов ====
+const MACROS_LABELS = {
+  protein: "Белки",
+  carbs: "Углеводы",
+  fats: "Жиры"
+};
+
+// Парсер макросов из текста ответа GPT
 function parseMacrosFromText(text) {
-  // Находит "Калории: 500 ккал", "Белки: 20 г", "Жиры: 10 г", "Углеводы: 40 г"
   const cals = Number((text.match(/Кал[оа]р[ии][иы]?:?\s*(\d+)/i) || [])[1]) || 0;
   const prot = Number((text.match(/Белк[иов]:?\s*(\d+)/i) || [])[1]) || 0;
   const fats = Number((text.match(/Жир[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
@@ -16,24 +21,28 @@ function parseMacrosFromText(text) {
   return { calories: cals, protein: prot, fats: fats, carbs: carb };
 }
 
-// Индикатор для макроэлементов
+// Индикатор макроэлемента с прогрессом и на русском
 function MacroBox({ name, value, total }) {
   const isOver = value < 0;
-  const percent = Math.max(0, Math.min(1, (total - value) / total));
-  const color =
-    name === "Protein" ? (isOver ? "text-red-500" : "text-red-700")
-    : name === "Carbs" ? (isOver ? "text-yellow-600" : "text-yellow-700")
+  const percent = total === 0 ? 0 : Math.max(0, Math.min(1, (total - value) / total));
+  // Цвета
+  const barColor =
+    name === "Белки" ? "bg-red-300"
+    : name === "Углеводы" ? "bg-yellow-200"
+    : "bg-blue-200";
+  const textColor =
+    name === "Белки" ? (isOver ? "text-red-500" : "text-red-700")
+    : name === "Углеводы" ? (isOver ? "text-yellow-600" : "text-yellow-700")
     : (isOver ? "text-blue-600" : "text-blue-700");
   return (
-    <div className="flex flex-col items-center bg-white rounded-xl p-2 min-w-[80px] relative">
+    <div className="flex flex-col items-center bg-white rounded-xl p-2 min-w-[90px] relative">
       <span className="text-xs text-gray-400">{name}</span>
-      <span className={`text-lg font-semibold ${color}`}>
-        {Math.abs(value)}g {isOver ? "over" : "left"}
+      <span className={`text-lg font-semibold ${textColor}`}>
+        {Math.abs(value)}г {isOver ? "превышено" : "осталось"}
       </span>
-      {/* Прогресс-полоска снизу */}
       <div className="absolute bottom-1 left-2 right-2 h-1 bg-gray-200 rounded-full overflow-hidden">
         <div
-          className={`h-full ${name === "Protein" ? "bg-red-300" : name === "Carbs" ? "bg-yellow-200" : "bg-blue-200"}`}
+          className={`h-full ${barColor}`}
           style={{ width: `${Math.min(100, percent * 100)}%` }}
         ></div>
       </div>
@@ -41,10 +50,10 @@ function MacroBox({ name, value, total }) {
   );
 }
 
-// Кольцевой прогрессбар калорий
+// Кольцевой прогрессбар калорий (тоже на русском)
 function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
   const used = caloriesTotal - caloriesLeft;
-  const percent = Math.max(0, Math.min(1, used / caloriesTotal));
+  const percent = caloriesTotal === 0 ? 0 : Math.max(0, Math.min(1, used / caloriesTotal));
   const radius = 36, stroke = 6, circ = 2 * Math.PI * radius;
   return (
     <svg width="80" height="80" className="mr-2">
@@ -65,7 +74,7 @@ function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
   );
 }
 
-// Функция для извлечения чистого названия блюда из ответа GPT
+// Функция для чистого названия блюда
 function extractDishTitle(gptText) {
   if (!gptText) return '';
   const match = gptText.match(/(?:На фотографии (?:изображен[ао]?|показано):?\s*|Изображено:?\s*)(.*?)(\.|$)/i);
@@ -152,7 +161,7 @@ export default function MiniApp() {
     return () => unsubscribe();
   }, [user]);
 
-  // Считаем сегодняшние показатели
+  // Только сегодняшние генерации для расчёта
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   const todayGenerations = generations.filter(g => {
@@ -161,6 +170,7 @@ export default function MiniApp() {
     return d.toISOString().slice(0, 10) === todayStr;
   });
 
+  // Суммируем макросы за сегодня
   let sumCalories = 0, sumProtein = 0, sumFats = 0, sumCarbs = 0;
   todayGenerations.forEach(gen => {
     const parsed = parseMacrosFromText(gen.resultText || "");
@@ -170,17 +180,17 @@ export default function MiniApp() {
     sumCarbs    += parsed.carbs;
   });
 
-  // Нормы из профиля (по расчету в профиле!)
+  // Нормы из профиля (ProfileView их считает и сохраняет)
   const caloriesTotal = profile?.calories || 2000;
   const proteinTotal = profile?.macros?.protein || 150;
   const fatsTotal = profile?.macros?.fats || 70;
   const carbsTotal = profile?.macros?.carbs || 220;
 
-  // Остатки
-  const caloriesLeft = Math.max(0, caloriesTotal - sumCalories);
-  const proteinLeft = Math.max(0, proteinTotal - sumProtein);
-  const fatsLeft = Math.max(0, fatsTotal - sumFats);
-  const carbsLeft = Math.max(0, carbsTotal - sumCarbs);
+  // Остатки (могут быть отрицательные — если превышено)
+  const caloriesLeft = caloriesTotal - sumCalories;
+  const proteinLeft = proteinTotal - sumProtein;
+  const fatsLeft = fatsTotal - sumFats;
+  const carbsLeft = carbsTotal - sumCarbs;
 
   useEffect(() => {
     const timer = setTimeout(() => setSplash(false), 1800);
@@ -255,17 +265,15 @@ export default function MiniApp() {
       />
       <div className="h-screen overflow-hidden flex flex-col justify-between bg-white">
         <div className="flex-1 overflow-y-auto p-2 pb-20">
-          {/* Главный новый экран */}
           {tab === "home" && (
             <div>
-              {/* Header */}
               <div className="flex justify-between items-center px-2 pt-2">
                 <div className="text-xl font-bold flex items-center gap-2">
-                  <span role="img" aria-label="apple">🍏</span> Cal AI
+                  <span role="img" aria-label="apple">🍏</span> EatVision
                 </div>
                 <div className="flex items-center gap-3">
-                  <button className="text-sm text-gray-700 font-semibold border-b-2 border-black">Today</button>
-                  <button className="text-sm text-gray-400">Yesterday</button>
+                  <button className="text-sm text-gray-700 font-semibold border-b-2 border-black">Сегодня</button>
+                  <button className="text-sm text-gray-400">Вчера</button>
                   <div className="ml-2">
                     <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
@@ -277,28 +285,27 @@ export default function MiniApp() {
               {/* Calories left + прогрессбар */}
               <div className="flex justify-center my-4">
                 <div className="bg-white rounded-2xl shadow-md p-4 flex items-center gap-4 w-11/12 max-w-md">
-                  <CalorieProgressBar caloriesLeft={caloriesLeft} caloriesTotal={caloriesTotal} />
+                  <CalorieProgressBar caloriesLeft={Math.max(0, caloriesLeft)} caloriesTotal={caloriesTotal} />
                   <div>
-                    <div className="text-4xl font-bold">{caloriesLeft}</div>
-                    <div className="text-gray-500 text-lg">Calories left</div>
+                    <div className="text-4xl font-bold">{Math.max(0, caloriesLeft)}</div>
+                    <div className="text-gray-500 text-lg">Ккал осталось</div>
                   </div>
                 </div>
               </div>
               {/* Макросы */}
               <div className="flex justify-around my-2 max-w-md mx-auto">
-                <MacroBox name="Protein" value={proteinLeft} total={proteinTotal} />
-                <MacroBox name="Carbs" value={carbsLeft} total={carbsTotal} />
-                <MacroBox name="Fats" value={fatsLeft} total={fatsTotal} />
+                <MacroBox name="Белки" value={proteinLeft} total={proteinTotal} />
+                <MacroBox name="Углеводы" value={carbsLeft} total={carbsTotal} />
+                <MacroBox name="Жиры" value={fatsLeft} total={fatsTotal} />
               </div>
               {/* История */}
               <div className="px-2 mt-4">
-                <h2 className="font-bold text-lg mb-2">Recently uploaded</h2>
+                <h2 className="font-bold text-lg mb-2">Последние блюда</h2>
                 <HistoryList user={user} />
               </div>
             </div>
           )}
 
-          {/* Анализ еды (фото) */}
           {tab === "upload" && (
             <div className="flex flex-col items-center gap-4">
               <h1 className="text-2xl font-bold">🥗 Анализ еды</h1>
@@ -322,11 +329,9 @@ export default function MiniApp() {
             </div>
           )}
 
-          {/* Профиль */}
           {tab === "profile" && <ProfileView user={user} />}
         </div>
 
-        {/* Нижняя навигация */}
         <div className="fixed left-0 right-0 bottom-0 border-t p-2 flex justify-around bg-white shadow-xl z-10 rounded-t-2xl">
           <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 ${tab === "home" ? "text-black" : ""}`}>
             <Home size={24} />
