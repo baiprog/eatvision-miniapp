@@ -7,11 +7,45 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  setDoc,
 } from "firebase/firestore";
 import { Dialog, Transition } from "@headlessui/react";
 import { db } from "./firebase";
 import EditProfileModal from "./EditProfileModal";
 import MealPlanSection from "./MealPlanSection";
+
+// Активность — коэффициент и описание
+const ACTIVITY_LEVELS = [
+  { value: 1.2, label: "0-1 тренировка/неделя (минимальная)" },
+  { value: 1.375, label: "2-3 тренировки/неделя (лёгкая)" },
+  { value: 1.55, label: "4-5 тренировок/неделя (средняя)" },
+  { value: 1.725, label: "6-7 тренировок/неделя (высокая)" },
+];
+// Дефицит — ккал и описание
+const DEFICIT_LEVELS = [
+  { value: 300, label: "Медленно (-300 ккал/день)" },
+  { value: 500, label: "Оптимально (-500 ккал/день)" },
+  { value: 700, label: "Быстро (-700 ккал/день)" },
+];
+
+// BMR Харрис-Бенедикта
+function calcBMR({ sex, weight, height, age }) {
+  if (sex === "male") {
+    return 88.36 + 13.4 * weight + 4.8 * height - 5.7 * age;
+  }
+  return 447.6 + 9.2 * weight + 3.1 * height - 4.3 * age;
+}
+function calcTDEE(bmr, activity) {
+  return bmr * activity;
+}
+function calcMacros(weight, calories) {
+  const protein = Math.round(weight * 1.8);
+  const fats = Math.round(weight * 1.0);
+  const kcalFromProtein = protein * 4;
+  const kcalFromFats = fats * 9;
+  const carbs = Math.round((calories - kcalFromProtein - kcalFromFats) / 4);
+  return { protein, fats, carbs };
+}
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
@@ -23,6 +57,18 @@ export default function ProfileView({ user }) {
   const [editOpen, setEditOpen] = useState(false);
   const [selectedGen, setSelectedGen] = useState(null);
 
+  // По умолчанию значения для нового пользователя
+  const defaultProfile = {
+    sex: "male",
+    weight: 70,
+    height: 170,
+    age: 25,
+    activity: 1.375,
+    deficit: 500,
+    goal: "Похудение",
+  };
+
+  // Загружаем профиль и историю генераций
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -30,15 +76,9 @@ export default function ProfileView({ user }) {
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setUserInfo(docSnap.data());
+        setUserInfo({ ...defaultProfile, ...docSnap.data() });
       } else {
-        setUserInfo({
-          weight: 70,
-          height: 170,
-          age: 25,
-          activity: "Умеренная активность",
-          goal: "Поддерживать форму",
-        });
+        setUserInfo(defaultProfile);
       }
     };
 
@@ -48,7 +88,6 @@ export default function ProfileView({ user }) {
       collection(db, "users", user.uid, "generations"),
       orderBy("createdAt", "desc")
     );
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -58,9 +97,33 @@ export default function ProfileView({ user }) {
     });
 
     return () => unsubscribe();
+    // eslint-disable-next-line
   }, [user]);
 
+  // Сохраняем профиль при изменениях
+  const saveProfile = async (patch) => {
+    const updated = { ...userInfo, ...patch };
+    setUserInfo(updated);
+    if (user?.uid) {
+      await setDoc(doc(db, "users", user.uid), updated, { merge: true });
+    }
+  };
+
   if (!userInfo) return null;
+
+  // Переводим значения в цифры (на всякий случай)
+  const activityValue = Number(userInfo.activity) || 1.375;
+  const deficitValue = Number(userInfo.deficit) || 500;
+  const weight = Number(userInfo.weight) || 70;
+  const height = Number(userInfo.height) || 170;
+  const age = Number(userInfo.age) || 25;
+  const sex = userInfo.sex || "male";
+
+  // Расчёт норм
+  const bmr = calcBMR({ sex, weight, height, age });
+  const tdee = calcTDEE(bmr, activityValue);
+  const calories = Math.max(1000, Math.round(tdee - deficitValue));
+  const macros = calcMacros(weight, calories);
 
   return (
     <div className="max-w-md mx-auto">
@@ -72,15 +135,37 @@ export default function ProfileView({ user }) {
           </button>
         </div>
         <div className="text-sm text-gray-700 leading-relaxed">
-          Вес: <b>{userInfo.weight} кг</b><br />
-          Рост: <b>{userInfo.height} см</b><br />
-          Возраст: <b>{userInfo.age}</b><br />
-          Активность: <b>{userInfo.activity}</b><br />
+          Пол: <b>{sex === "male" ? "Мужской" : "Женский"}</b>
+          <br />
+          Вес: <b>{weight} кг</b>
+          <br />
+          Рост: <b>{height} см</b>
+          <br />
+          Возраст: <b>{age}</b>
+          <br />
+          Активность: <b>
+            {ACTIVITY_LEVELS.find(a => a.value === activityValue)?.label || "?"}
+          </b>
+          <br />
+          Темп похудения: <b>
+            {DEFICIT_LEVELS.find(d => d.value === deficitValue)?.label || "?"}
+          </b>
+          <br />
           Цель: <b>{userInfo.goal}</b>
+        </div>
+        {/* Рекомендации по питанию */}
+        <div className="mt-4 bg-gray-50 rounded-xl p-4">
+          <div className="text-lg font-semibold mb-1">Ваша суточная норма:</div>
+          <div><b>{calories} ккал</b> в сутки</div>
+          <div>
+            Белки: <b>{macros.protein} г</b> &nbsp;
+            Жиры: <b>{macros.fats} г</b> &nbsp;
+            Углеводы: <b>{macros.carbs} г</b>
+          </div>
         </div>
       </Card>
 
-      <MealPlanSection user={user} userInfo={userInfo} />
+      <MealPlanSection user={user} userInfo={{...userInfo, calories, macros}} />
 
       <Card>
         <div className="flex justify-between items-center mb-2">
@@ -120,14 +205,126 @@ export default function ProfileView({ user }) {
         )}
       </Card>
 
-      <EditProfileModal
-        user={user}
-        isOpen={editOpen}
-        onClose={() => setEditOpen(false)}
-        userInfo={userInfo}
-        onUpdate={setUserInfo}
-      />
+      {/* Модалка редактирования профиля */}
+      <Transition appear show={editOpen} as={Fragment}>
+        <Dialog onClose={() => setEditOpen(false)} className="relative z-50">
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/40" />
+          </Transition.Child>
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-md bg-white rounded-xl p-6 shadow-xl">
+                <Dialog.Title className="text-lg font-bold mb-2">Редактировать профиль</Dialog.Title>
+                {/* Форма редактирования */}
+                <form
+                  onSubmit={e => {
+                    e.preventDefault();
+                    setEditOpen(false);
+                  }}
+                  className="space-y-3"
+                >
+                  <label className="block">Пол:
+                    <select
+                      className="ml-2"
+                      value={sex}
+                      onChange={e => saveProfile({ sex: e.target.value })}
+                    >
+                      <option value="male">Мужской</option>
+                      <option value="female">Женский</option>
+                    </select>
+                  </label>
+                  <label className="block">Вес (кг):
+                    <input
+                      type="number"
+                      min="30"
+                      max="300"
+                      className="ml-2 w-20"
+                      value={weight}
+                      onChange={e => saveProfile({ weight: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="block">Рост (см):
+                    <input
+                      type="number"
+                      min="100"
+                      max="250"
+                      className="ml-2 w-20"
+                      value={height}
+                      onChange={e => saveProfile({ height: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="block">Возраст:
+                    <input
+                      type="number"
+                      min="10"
+                      max="120"
+                      className="ml-2 w-20"
+                      value={age}
+                      onChange={e => saveProfile({ age: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="block">Активность:
+                    <select
+                      className="ml-2"
+                      value={activityValue}
+                      onChange={e => saveProfile({ activity: Number(e.target.value) })}
+                    >
+                      {ACTIVITY_LEVELS.map(a => (
+                        <option key={a.value} value={a.value}>{a.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">Темп похудения:
+                    <select
+                      className="ml-2"
+                      value={deficitValue}
+                      onChange={e => saveProfile({ deficit: Number(e.target.value) })}
+                    >
+                      {DEFICIT_LEVELS.map(d => (
+                        <option key={d.value} value={d.value}>{d.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">Цель:
+                    <input
+                      type="text"
+                      className="ml-2 w-48"
+                      value={userInfo.goal || ""}
+                      onChange={e => saveProfile({ goal: e.target.value })}
+                    />
+                  </label>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-black text-white rounded-xl text-sm"
+                    >
+                      Сохранить
+                    </button>
+                  </div>
+                </form>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
 
+      {/* Модалка с подробным результатом анализа */}
       <Transition appear show={!!selectedGen} as={Fragment}>
         <Dialog onClose={() => setSelectedGen(null)} className="relative z-50">
           <Transition.Child
