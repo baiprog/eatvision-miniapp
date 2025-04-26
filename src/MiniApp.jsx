@@ -77,14 +77,18 @@ function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
 // Функция для короткого и чистого названия блюда
 function extractDishTitle(gptText) {
   if (!gptText) return '';
-  // Поймать известные короткие блюда
-  const match = gptText.match(/(борщ|суп|каша|плов|яичница|омлет|паста|салат|котлета|пюре|гречка|макароны|картошка|шашлык|стейк|рис|булгур|чечевица)/i);
-  if (match) return match[1].charAt(0).toUpperCase() + match[1].slice(1);
-  // Если есть Блюдо: ... — взять его
-  const match2 = gptText.match(/Блюдо:?\s*(.{1,25})/i);
-  if (match2 && match2[1]) return match2[1].trim().slice(0, 25);
-  // Или обрезать до 25 символов
-  return gptText.replace(/^На фотографии.*?:?\s*/i, '').split('\n')[0].split('.')[0].trim().slice(0, 25);
+  // 1. Пробуем найти "Блюдо: ..." (желательно добавить это в промпт GPT!)
+  const matchDish = gptText.match(/Блюдо:?\s*([^\n,.]+)/i);
+  if (matchDish && matchDish[1]) {
+    // Берём только первые 25 символов, удаляя лишние пояснения после запятой
+    return matchDish[1].split(',')[0].split('.')[0].trim().slice(0, 25);
+  }
+  // 2. Популярные блюда (борщ, паста, салат...)
+  const match = gptText.match(/(борщ|суп|каша|плов|яичница|омлет|паста [а-яa-z]+|паста|салат|котлета|пюре|гречка|макароны|картошка|шашлык|стейк|рис|булгур|чечевица)/i);
+  if (match) return match[0].charAt(0).toUpperCase() + match[0].slice(1, 25);
+  // 3. Обрезаем до 2 слов и 25 символов (если GPT совсем фантазирует)
+  const arr = gptText.replace(/^На фотографии.*?:?\s*/i, '').split(/[,.!?\n]/)[0].trim().split(' ').slice(0, 2);
+  return arr.join(' ').slice(0, 25);
 }
 
 // История загрузок еды (только названия блюд)
@@ -211,10 +215,17 @@ export default function MiniApp() {
     reader.onloadend = async () => {
       const base64 = reader.result.split(",")[1];
       try {
+        // !!! Добавляем специальный промпт для корректного названия блюда
+        const PROMPT = `
+Пожалуйста, всегда начинай ответ с названия блюда строго на одной строке в формате:
+Блюдо: [название блюда]
+
+Затем дай описание блюда, состав, калории, белки, жиры и углеводы.
+        `;
         const response = await fetch("https://gpt4-vision-proxy.onrender.com/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: `data:image/jpeg;base64,${base64}` })
+          body: JSON.stringify({ image: `data:image/jpeg;base64,${base64}`, prompt: PROMPT })
         });
 
         const data = await response.json();
