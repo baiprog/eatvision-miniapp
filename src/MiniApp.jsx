@@ -21,36 +21,36 @@ function parseMacrosFromText(text) {
   return { calories: cals, protein: prot, fats: fats, carbs: carb };
 }
 
-// Индикатор макроэлемента с прогрессом и на русском
-function MacroBox({ name, value, total }) {
-  const isOver = value < 0;
-  const percent = total === 0 ? 0 : Math.max(0, Math.min(1, (total - value) / total));
-  // Цвета
-  const barColor =
-    name === "Белки" ? "bg-red-300"
-    : name === "Углеводы" ? "bg-yellow-200"
-    : "bg-blue-200";
-  const textColor =
-    name === "Белки" ? (isOver ? "text-red-500" : "text-red-700")
-    : name === "Углеводы" ? (isOver ? "text-yellow-600" : "text-yellow-700")
-    : (isOver ? "text-blue-600" : "text-blue-700");
+// Круглый прогрессбар для макроэлементов
+function MacroCircle({ value, total, label, color }) {
+  const used = Math.max(0, Math.min(value, total));
+  const percent = total === 0 ? 0 : Math.max(0, Math.min(1, value / total));
+  const radius = 28, stroke = 6, circ = 2 * Math.PI * radius;
   return (
-    <div className="flex flex-col items-center bg-white rounded-xl p-2 min-w-[90px] relative">
-      <span className="text-xs text-gray-400">{name}</span>
-      <span className={`text-lg font-semibold ${textColor}`}>
-        {Math.abs(value)}г {isOver ? "превышено" : "осталось"}
-      </span>
-      <div className="absolute bottom-1 left-2 right-2 h-1 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full ${barColor}`}
-          style={{ width: `${Math.min(100, percent * 100)}%` }}
-        ></div>
-      </div>
+    <div className="flex flex-col items-center">
+      <svg width="64" height="64">
+        <circle cx="32" cy="32" r={radius} stroke="#eee" strokeWidth={stroke} fill="none" />
+        <circle
+          cx="32"
+          cy="32"
+          r={radius}
+          stroke={color}
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={circ}
+          strokeDashoffset={circ * (1 - percent)}
+          strokeLinecap="round"
+        />
+        <text x="50%" y="54%" textAnchor="middle" fontSize="1.1em" fontWeight="bold" fill={color}>
+          {Math.min(value, total)}
+        </text>
+      </svg>
+      <div className="text-xs mt-1">{label}</div>
     </div>
   );
 }
 
-// Кольцевой прогрессбар калорий (тоже на русском)
+// Кольцевой прогрессбар калорий
 function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
   const used = caloriesTotal - caloriesLeft;
   const percent = caloriesTotal === 0 ? 0 : Math.max(0, Math.min(1, used / caloriesTotal));
@@ -69,19 +69,22 @@ function CalorieProgressBar({ caloriesLeft, caloriesTotal }) {
         strokeDashoffset={circ * (1 - percent)}
         strokeLinecap="round"
       />
-      <text x="50%" y="55%" textAnchor="middle" fontSize="1.3em" fontWeight="bold" fill="#fdba74">{caloriesLeft}</text>
+      <text x="50%" y="55%" textAnchor="middle" fontSize="1.3em" fontWeight="bold" fill="#fdba74">{Math.max(0, caloriesLeft)}</text>
     </svg>
   );
 }
 
-// Функция для чистого названия блюда
+// Функция для короткого и чистого названия блюда
 function extractDishTitle(gptText) {
   if (!gptText) return '';
-  const match = gptText.match(/(?:На фотографии (?:изображен[ао]?|показано):?\s*|Изображено:?\s*)(.*?)(\.|$)/i);
-  if (match && match[1]) return match[1].trim();
-  const match2 = gptText.match(/Блюдо:?\s*(.*)/i);
-  if (match2 && match2[1]) return match2[1].split('.')[0].trim();
-  return gptText.replace(/^На фотографии.*?:?\s*/i, '').split('\n')[0].split('.')[0].trim();
+  // Поймать известные короткие блюда
+  const match = gptText.match(/(борщ|суп|каша|плов|яичница|омлет|паста|салат|котлета|пюре|гречка|макароны|картошка|шашлык|стейк|рис|булгур|чечевица)/i);
+  if (match) return match[1].charAt(0).toUpperCase() + match[1].slice(1);
+  // Если есть Блюдо: ... — взять его
+  const match2 = gptText.match(/Блюдо:?\s*(.{1,25})/i);
+  if (match2 && match2[1]) return match2[1].trim().slice(0, 25);
+  // Или обрезать до 25 символов
+  return gptText.replace(/^На фотографии.*?:?\s*/i, '').split('\n')[0].split('.')[0].trim().slice(0, 25);
 }
 
 // История загрузок еды (только названия блюд)
@@ -186,7 +189,7 @@ export default function MiniApp() {
   const fatsTotal = profile?.macros?.fats || 70;
   const carbsTotal = profile?.macros?.carbs || 220;
 
-  // Остатки (могут быть отрицательные — если превышено)
+  // Остатки (может быть отрицательное, если перебор)
   const caloriesLeft = caloriesTotal - sumCalories;
   const proteinLeft = proteinTotal - sumProtein;
   const fatsLeft = fatsTotal - sumFats;
@@ -294,9 +297,9 @@ export default function MiniApp() {
               </div>
               {/* Макросы */}
               <div className="flex justify-around my-2 max-w-md mx-auto">
-                <MacroBox name="Белки" value={proteinLeft} total={proteinTotal} />
-                <MacroBox name="Углеводы" value={carbsLeft} total={carbsTotal} />
-                <MacroBox name="Жиры" value={fatsLeft} total={fatsTotal} />
+                <MacroCircle value={sumProtein} total={proteinTotal} label="Белки" color="#e57373" />
+                <MacroCircle value={sumCarbs} total={carbsTotal} label="Углеводы" color="#fbc02d" />
+                <MacroCircle value={sumFats} total={fatsTotal} label="Жиры" color="#64b5f6" />
               </div>
               {/* История */}
               <div className="px-2 mt-4">
