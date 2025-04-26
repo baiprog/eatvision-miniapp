@@ -15,24 +15,16 @@ const MACROS_LABELS = {
 // --- Новый универсальный извлекатель названия блюда (строгое начало) ---
 function extractDishTitle(gptText) {
   if (!gptText) return '';
-  // Если есть "Блюдо: ...", строго берем только это!
-  const dishMatch = gptText.match(/Блюдо:\s*([^\n,.]+)/i);
+  // Если есть "Блюдо: ...", берем только это (до первой новой строки/точки/запятой/двоеточия/скобки)
+  const dishMatch = gptText.match(/Блюдо:\s*([^\n,.():;]+)/i);
   if (dishMatch && dishMatch[1]) {
-    return dishMatch[1].trim().slice(0, 30);
+    return dishMatch[1].trim().replace(/^[-—–]+/, '').slice(0, 30);
   }
-  // Если после "Блюдо:" идет дефис или описание, отрезаем по первой точке/запятой/двоеточию
-  const genericMatch = gptText.match(/^([А-ЯA-Z][а-яa-z\s\-]+)[,.:\n]/);
-  if (genericMatch && genericMatch[1]) {
-    return genericMatch[1].trim().slice(0, 30);
-  }
-  // Если часто встречается "на фотографии изображено:" и после сразу название блюда (до точки/запятой)
-  const photoMatch = gptText.match(/(?:на фотографии (?:изображен[ао]?|показано):?\s*)(.*?)([.,:;\n]|$)/i);
-  if (photoMatch && photoMatch[1]) {
-    // Возьмем только до первой запятой/точки
-    return photoMatch[1].trim().slice(0, 30);
-  }
-  // В остальных случаях — первое предложение или до первой запятой, максимум 2 слова и 30 символов
-  return gptText.replace(/^На фотографии.*?:?\s*/i, '').split(/[\n,.!]/)[0].split(' ').slice(0, 3).join(' ').trim().slice(0, 30);
+  // Если GPT написал "На фотографии ...", убираем и берем первое предложение (макс 3 слова)
+  let cleaned = gptText.replace(/^На фотографии.*?:?\s*/i, '').trim();
+  cleaned = cleaned.split(/[\n,.!]/)[0].trim().split(' ').slice(0, 3).join(' ');
+  if (cleaned.length > 2) return cleaned.slice(0, 30);
+  return 'Блюдо';
 }
 
 // --- Круглый прогрессбар для макроэлементов и калорий ---
@@ -176,10 +168,7 @@ export default function MiniApp() {
   const carbsTotal = profile?.macros?.carbs || 220;
 
   // Остатки (может быть отрицательное, если перебор)
-  const caloriesLeft = caloriesTotal - sumCalories;
-  const proteinLeft = proteinTotal - sumProtein;
-  const fatsLeft = fatsTotal - sumFats;
-  const carbsLeft = carbsTotal - sumCarbs;
+  const caloriesLeft = Math.max(0, caloriesTotal - sumCalories);
 
   useEffect(() => {
     const timer = setTimeout(() => setSplash(false), 1800);
@@ -297,7 +286,7 @@ export default function MiniApp() {
                         strokeLinecap="round"
                       />
                       <text x="50%" y="54%" textAnchor="middle" fontSize="1.1em" fontWeight="bold" fill="#fdba74">
-                        {Math.min(sumCalories, caloriesTotal)}
+                        {Math.max(0, caloriesTotal - sumCalories)}
                       </text>
                     </svg>
                     <div className="text-xs mt-1">Ккал</div>
