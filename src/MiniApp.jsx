@@ -1,16 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import ProfileView from './ProfileView';
 import LoginRegister from './LoginRegister';
-import { Home, Plus, User } from "lucide-react";
+import { Home, Plus, User, Flame, Drumstick, Wheat, Droplets } from "lucide-react";
 import { db } from './firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDoc, onSnapshot } from "firebase/firestore";
 
-// ---- Расширяем список бан-слов и еды ----
+// --- Базовые списки для определения названия блюда ---
 const banWords = [
   "кухни", "тарелка", "блюдо", "блюда", "напиток", "суп", "основа", "основе", "традиционное",
   "популярное", "представлено", "изображено", "показано", "порция", "порции", "основной", "из"
 ];
-
 const foodList = [
   "борщ", "паста карбонара", "карбонара", "пицца", "спагетти", "плов", "каша", "рис", "салат", "окрошка",
   "омлет", "яичница", "шашлык", "гречка", "чечевица", "булгур", "жаркое", "котлета", "пюре",
@@ -20,51 +19,39 @@ const foodList = [
   "рыба", "треска", "лосось", "форель", "селедка", "молоко", "кефир", "морс", "компот", "сок",
   "чай", "кофе", "капучино", "латте", "американо", "какао", "вода", "лимонад", "узвар", "квас"
 ];
-
-function capitalizeFirst(str) {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
+function capitalizeFirst(str) { if (!str) return ''; return str.charAt(0).toUpperCase() + str.slice(1); }
 function findFoodWord(text) {
   const lower = text.toLowerCase();
-  for (let food of foodList) {
-    if (lower.includes(food)) return food;
-  }
+  for (let food of foodList) if (lower.includes(food)) return food;
   return null;
 }
 
-// --- Новый парсер названия блюда ---
+// --- Парсер короткого названия блюда ---
 function extractDishTitle(gptText) {
   if (!gptText) return '';
-
-  // 1. Строго "Блюдо: ..."
   const dishMatch = gptText.match(/Блюдо:\s*([^\n,.:;]+)/i);
-  if (dishMatch && dishMatch[1]) {
-    return capitalizeFirst(dishMatch[1].replace(/^[^а-яa-zA-Zё0-9]+/g, '').trim());
-  }
-
-  // 2. "похож на ..." / "похоже на ..."
+  if (dishMatch && dishMatch[1]) return capitalizeFirst(dishMatch[1].replace(/^[^а-яa-zA-Zё0-9]+/g, '').trim());
   const likeMatch = gptText.match(/пох[ао]ж[еа]? на\s+([а-яa-zA-Zё\- ]{3,50})[.,;]?/i);
-  if (likeMatch && likeMatch[1]) {
-    return capitalizeFirst(likeMatch[1].trim().split(' ').slice(0, 3).join(' '));
-  }
-
-  // 3. После "изображен", "представлен", "показан" — ищем первое кулинарное слово из списка
+  if (likeMatch && likeMatch[1]) return capitalizeFirst(likeMatch[1].trim().split(' ').slice(0, 3).join(' '));
   const afterImage = gptText.match(/(?:изображен[ао]?|представлен[ао]?|показан[ао]?|изображении)[^а-яa-zA-Zё0-9]+(.+?)[.,;:\n]/i);
   if (afterImage && afterImage[1]) {
     const foodWord = findFoodWord(afterImage[1]);
     if (foodWord) return capitalizeFirst(foodWord);
   }
-
-  // 4. Весь текст — ищем известное блюдо из списка
   const foodWord = findFoodWord(gptText);
   if (foodWord) return capitalizeFirst(foodWord);
-
-  // 5. На всякий случай — первое "сильное" слово (без "кухни", "тарелка" и пр.)
   let line = gptText.split('\n')[0].replace(/^На фотографии.*?:?\s*/i, '').trim();
   const firstFoodLike = line.split(' ').find(w => w.length > 3 && !banWords.includes(w.toLowerCase()));
   return capitalizeFirst(firstFoodLike) || "Блюдо";
+}
+
+// --- Парсер макросов из текста ответа GPT ---
+function parseMacrosFromText(text) {
+  const cals = Number((text.match(/Кал[оа]р[ии][иы]?:?\s*(\d+)/i) || [])[1]) || 0;
+  const prot = Number((text.match(/Белк[иов]:?\s*(\d+)/i) || [])[1]) || 0;
+  const fats = Number((text.match(/Жир[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
+  const carb = Number((text.match(/Углевод[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
+  return { calories: cals, protein: prot, fats: fats, carbs: carb };
 }
 
 // --- Круглый прогрессбар для макроэлементов и калорий ---
@@ -95,18 +82,13 @@ function MacroCircle({ value, total, label, color }) {
   );
 }
 
-// История загрузок еды (только названия блюд)
+// --- Карточка Истории блюд в стиле UI как на картинке ---
 function HistoryList({ user }) {
   const [docs, setDocs] = useState([]);
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(
-      collection(db, "users", user.uid, "generations"),
-      orderBy("createdAt", "desc")
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setDocs(snapshot.docs);
-    });
+    const q = query(collection(db, "users", user.uid, "generations"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => setDocs(snapshot.docs));
     return () => unsubscribe();
   }, [user]);
   if (!docs?.length) return <div className="text-gray-400 text-center">Пока нет загрузок</div>;
@@ -114,15 +96,38 @@ function HistoryList({ user }) {
     <div className="space-y-3">
       {docs.map((doc) => {
         const item = doc.data();
+        const macros = parseMacrosFromText(item.resultText);
+        const name = extractDishTitle(item.resultText) || "Еда";
+        let time = "";
+        if (item.createdAt?.toDate) {
+          const dateObj = item.createdAt.toDate();
+          time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
         return (
-          <div key={doc.id} className="flex items-center bg-white rounded-xl shadow-sm p-3">
-            <img src={item.image} alt="Food" className="w-14 h-14 rounded-lg object-cover mr-3"/>
-            <div className="flex-1">
-              <div className="font-semibold truncate">
-                {extractDishTitle(item.resultText) || "Еда"}
+          <div
+            key={doc.id}
+            className="flex bg-white rounded-2xl shadow-sm items-center p-4"
+            style={{ boxShadow: "0 2px 10px 0 #e0e0e0" }}
+          >
+            <img src={item.image} alt="Food" className="w-16 h-16 rounded-xl object-cover mr-4" />
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-baseline mb-1">
+                <div className="font-semibold text-base truncate">{name}</div>
+                <div className="text-xs text-gray-400">{time}</div>
               </div>
-              <div className="text-xs text-gray-400">
-                {item.createdAt?.toDate?.().toLocaleTimeString?.() || ""}
+              <div className="flex items-center space-x-4 mt-1">
+                <span className="flex items-center text-gray-700 font-semibold">
+                  <Flame size={18} className="mr-1 text-orange-500" />{macros.calories} <span className="ml-1 text-xs text-gray-400">ккал</span>
+                </span>
+                <span className="flex items-center text-red-500 font-semibold">
+                  <Drumstick size={18} className="mr-1" />{macros.protein} <span className="ml-1 text-xs text-gray-400">г</span>
+                </span>
+                <span className="flex items-center text-yellow-600 font-semibold">
+                  <Wheat size={18} className="mr-1" />{macros.carbs} <span className="ml-1 text-xs text-gray-400">г</span>
+                </span>
+                <span className="flex items-center text-blue-500 font-semibold">
+                  <Droplets size={18} className="mr-1" />{macros.fats} <span className="ml-1 text-xs text-gray-400">г</span>
+                </span>
               </div>
             </div>
           </div>
@@ -130,15 +135,6 @@ function HistoryList({ user }) {
       })}
     </div>
   );
-}
-
-// Парсер макросов из текста ответа GPT
-function parseMacrosFromText(text) {
-  const cals = Number((text.match(/Кал[оа]р[ии][иы]?:?\s*(\d+)/i) || [])[1]) || 0;
-  const prot = Number((text.match(/Белк[иов]:?\s*(\d+)/i) || [])[1]) || 0;
-  const fats = Number((text.match(/Жир[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
-  const carb = Number((text.match(/Углевод[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
-  return { calories: cals, protein: prot, fats: fats, carbs: carb };
 }
 
 const Button = ({ children, ...props }) => (
@@ -159,7 +155,6 @@ export default function MiniApp() {
   const [generations, setGenerations] = useState([]);
   const fileInputRef = useRef(null);
 
-  // Загрузка профиля пользователя
   useEffect(() => {
     if (user?.uid) {
       getDoc(doc(db, "users", user.uid)).then(docSnap => {
@@ -168,20 +163,15 @@ export default function MiniApp() {
     }
   }, [user]);
 
-  // Загрузка генераций
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(
-      collection(db, "users", user.uid, "generations"),
-      orderBy("createdAt", "desc")
-    );
+    const q = query(collection(db, "users", user.uid, "generations"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setGenerations(snapshot.docs.map(doc => doc.data()));
     });
     return () => unsubscribe();
   }, [user]);
 
-  // Только сегодняшние генерации для расчёта
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   const todayGenerations = generations.filter(g => {
@@ -190,7 +180,6 @@ export default function MiniApp() {
     return d.toISOString().slice(0, 10) === todayStr;
   });
 
-  // Суммируем макросы за сегодня
   let sumCalories = 0, sumProtein = 0, sumFats = 0, sumCarbs = 0;
   todayGenerations.forEach(gen => {
     const parsed = parseMacrosFromText(gen.resultText || "");
@@ -200,13 +189,10 @@ export default function MiniApp() {
     sumCarbs    += parsed.carbs;
   });
 
-  // Нормы из профиля (ProfileView их считает и сохраняет)
   const caloriesTotal = profile?.calories || 2000;
   const proteinTotal = profile?.macros?.protein || 150;
   const fatsTotal = profile?.macros?.fats || 70;
   const carbsTotal = profile?.macros?.carbs || 220;
-
-  // Остатки (может быть отрицательное, если перебор)
   const caloriesLeft = Math.max(0, caloriesTotal - sumCalories);
 
   useEffect(() => {
@@ -225,11 +211,9 @@ export default function MiniApp() {
     reader.onloadend = async () => {
       const base64 = reader.result.split(",")[1];
       try {
-        // Промпт для GPT для строгого формата начала!
         const PROMPT = `
 Всегда начинай ответ с названия блюда на одной строке строго в формате:
 Блюдо: [название блюда]
-
 Затем дай описание блюда, состав, калории, белки, жиры и углеводы.
         `;
         const response = await fetch("https://gpt4-vision-proxy.onrender.com/analyze", {
@@ -260,15 +244,10 @@ export default function MiniApp() {
   };
 
   const openFilePicker = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  if (!user) {
-    return <LoginRegister onLogin={(u) => setUser(u)} />;
-  }
-
+  if (!user) return <LoginRegister onLogin={(u) => setUser(u)} />;
   if (splash) {
     return (
       <div className="flex items-center justify-center h-screen bg-white flex-col">
@@ -309,7 +288,6 @@ export default function MiniApp() {
               {/* Ккал, белки, углеводы, жиры — КРУГИ */}
               <div className="flex justify-center my-4">
                 <div className="bg-white rounded-2xl shadow-md p-4 flex items-center gap-6 w-11/12 max-w-md">
-                  {/* Ккал круг как MacroCircle! */}
                   <MacroCircle value={sumCalories} total={caloriesTotal} label="Ккал" color="#fdba74" />
                   <div>
                     <div className="text-3xl font-bold">{caloriesLeft}</div>
@@ -317,7 +295,6 @@ export default function MiniApp() {
                   </div>
                 </div>
               </div>
-              {/* Макросы */}
               <div className="flex justify-around my-2 max-w-md mx-auto">
                 <MacroCircle value={sumProtein} total={proteinTotal} label="Белки" color="#e57373" />
                 <MacroCircle value={sumCarbs} total={carbsTotal} label="Углеводы" color="#fbc02d" />
@@ -335,11 +312,7 @@ export default function MiniApp() {
             <div className="flex flex-col items-center gap-4">
               <h1 className="text-2xl font-bold">🥗 Анализ еды</h1>
               <div className="w-full max-w-md">
-                <img
-                  src="/img/checkmain.png"
-                  alt="Еда"
-                  className="rounded-xl w-full object-cover mb-2"
-                />
+                <img src="/img/checkmain.png" alt="Еда" className="rounded-xl w-full object-cover mb-2" />
                 <p className="text-center text-sm text-gray-600 font-medium">🍽 Посчитай калории</p>
               </div>
               <Button onClick={openFilePicker}>📷 Выбрать фото</Button>
