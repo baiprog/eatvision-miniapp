@@ -5,34 +5,48 @@ import { Home, Plus, User } from "lucide-react";
 import { db } from './firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDoc, onSnapshot } from "firebase/firestore";
 
-// ==== Русские имена для макроэлементов ====
-const MACROS_LABELS = {
-  protein: "Белки",
-  carbs: "Углеводы",
-  fats: "Жиры"
-};
-
-// --- Новый строгий экстрактор названия блюда ---
+// --- СУПЕР парсер названия блюда ---
 function extractDishTitle(gptText) {
   if (!gptText) return '';
-  // Берём первую непустую строку
-  let line = gptText.split('\n')[0].trim();
-  // Убираем все паразитные слова (даже если GPT опять ослушался)
-  line = line.replace(/^(изображен[ао]?|показано|на фотографии|тарелка|блюдо:?)/i, '').trim();
-  // Если строка стала пустой, попробуем следующую строку (например, GPT мог начать с пустой)
-  if (!line && gptText.split('\n').length > 1) {
-    line = gptText.split('\n')[1].trim();
-    line = line.replace(/^(изображен[ао]?|показано|на фотографии|тарелка|блюдо:?)/i, '').trim();
+
+  // 1. "похожее на ...", "похоже на ..."
+  const likeMatch = gptText.match(/пох[ао]ж[еа] на\s+([а-яa-zё\- ]{3,50})[.,;]?/i);
+  if (likeMatch && likeMatch[1]) {
+    return capitalizeFirst(likeMatch[1].trim().split(' ').slice(0, 3).join(' '));
   }
-  // Удаляем лишние символы и артикли
-  line = line.replace(/^[^а-яa-zA-Z]*$/gi, '').trim();
-  // Оставляем только 1-2 слова
-  return line.split(' ').slice(0, 2).join(' ').slice(0, 30) || 'Блюдо';
+
+  // 2. "Блюдо: ..." (строгое форматирование, если есть)
+  const dishMatch = gptText.match(/Блюдо:\s*([^\n,.():;]+)/i);
+  if (dishMatch && dishMatch[1]) {
+    return capitalizeFirst(dishMatch[1].trim().replace(/^[-—–]+/, ''));
+  }
+
+  // 3. "блюдо ..." (НЕ "похожее на ..."), но после слова "блюдо"
+  const looseDish = gptText.match(/блюдо[^а-яa-zA-Z0-9]+([а-яa-zA-Zё0-9\- ]{3,50})[.,;]?/i);
+  if (looseDish && looseDish[1] && !looseDish[1].toLowerCase().includes('похож')) {
+    return capitalizeFirst(looseDish[1].trim().split(' ').slice(0, 3).join(' '));
+  }
+
+  // 4. После "на изображении", "представлено", "изображено"
+  const generalMatch = gptText.match(/(?:на изображени[ие]|представлен[ао]?|изображен[ао]?)[^а-яa-zA-Z0-9]+([а-яa-zA-Zё\- ]{3,50})[.,;]?/i);
+  if (generalMatch && generalMatch[1]) {
+    return capitalizeFirst(generalMatch[1].trim().split(' ').slice(0, 3).join(' '));
+  }
+
+  // 5. Просто взять первое значимое слово из первой строки
+  let line = gptText.split('\n')[0].trim();
+  line = line.replace(/^[^а-яa-zA-Z0-9]+/, '').trim();
+  line = line.split(/[.,;-]/)[0].trim();
+  return capitalizeFirst(line.split(' ').slice(0, 2).join(' ')) || 'Блюдо';
+}
+
+function capitalizeFirst(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 // --- Круглый прогрессбар для макроэлементов и калорий ---
 function MacroCircle({ value, total, label, color }) {
-  // value — сколько употреблено (а не осталось!)
   const percent = total === 0 ? 0 : Math.max(0, Math.min(1, value / total));
   const radius = 28, stroke = 6, circ = 2 * Math.PI * radius;
   return (
@@ -189,15 +203,12 @@ export default function MiniApp() {
     reader.onloadend = async () => {
       const base64 = reader.result.split(",")[1];
       try {
-        // Новый строгий промпт для GPT!
+        // Промпт для GPT для строгого формата начала!
         const PROMPT = `
-Твоя задача — определить только название блюда на изображении.
-В начале ответа пиши только его, одной строкой, без каких-либо пояснений и лишних слов.
-Не пиши слова "изображено", "на фотографии", "показано", "тарелка", "блюдо" и прочее.
-Пример:
-Борщ
-Овощной суп с мясом. Калории: 80, Белки: 5, Жиры: 4, Углеводы: 10
-Если не уверен — всё равно пиши только вероятное название блюда одной строкой!
+Всегда начинай ответ с названия блюда на одной строке строго в формате:
+Блюдо: [название блюда]
+
+Затем дай описание блюда, состав, калории, белки, жиры и углеводы.
         `;
         const response = await fetch("https://gpt4-vision-proxy.onrender.com/analyze", {
           method: "POST",
@@ -277,26 +288,7 @@ export default function MiniApp() {
               <div className="flex justify-center my-4">
                 <div className="bg-white rounded-2xl shadow-md p-4 flex items-center gap-6 w-11/12 max-w-md">
                   {/* Ккал круг как MacroCircle! */}
-                  <div className="flex flex-col items-center">
-                    <svg width="64" height="64">
-                      <circle cx="32" cy="32" r="28" stroke="#eee" strokeWidth="6" fill="none" />
-                      <circle
-                        cx="32"
-                        cy="32"
-                        r="28"
-                        stroke="#fdba74"
-                        strokeWidth="6"
-                        fill="none"
-                        strokeDasharray={2 * Math.PI * 28}
-                        strokeDashoffset={(2 * Math.PI * 28) * (1 - Math.max(0, Math.min(1, sumCalories / caloriesTotal)))}
-                        strokeLinecap="round"
-                      />
-                      <text x="50%" y="54%" textAnchor="middle" fontSize="1.1em" fontWeight="bold" fill="#fdba74">
-                        {Math.max(0, caloriesTotal - sumCalories)}
-                      </text>
-                    </svg>
-                    <div className="text-xs mt-1">Ккал</div>
-                  </div>
+                  <MacroCircle value={sumCalories} total={caloriesTotal} label="Ккал" color="#fdba74" />
                   <div>
                     <div className="text-3xl font-bold">{Math.max(0, caloriesTotal - sumCalories)}</div>
                     <div className="text-gray-500 text-md">Ккал осталось</div>
