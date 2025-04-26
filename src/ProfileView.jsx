@@ -154,44 +154,20 @@ export default function ProfileView({ user }) {
           Цель: <b>{userInfo.goal}</b>
         </div>
         {/* Рекомендации по питанию */}
-        <div className="bg-white rounded-2xl shadow p-5 mb-4 flex flex-col items-center">
-  <div className="text-base font-semibold text-gray-600 mb-2">Ваша суточная норма</div>
-  {/* Кольцевой прогрессбар, можно вставить svg */}
-  <div className="relative flex flex-col items-center my-2">
-    {/* Кольцевой прогресс (опционально — иначе просто круглая рамка) */}
-    <svg width="90" height="90">
-      <circle cx="45" cy="45" r="38" stroke="#eee" strokeWidth="8" fill="none"/>
-      {/* Можно добавить цветной круг если хочешь "прогресс" */}
-      <circle cx="45" cy="45" r="38" stroke="#fdba74" strokeWidth="8" fill="none"
-        strokeDasharray={2 * Math.PI * 38}
-        strokeDashoffset={0} // можно добавить динамику!
-        strokeLinecap="round"
-      />
-    </svg>
-    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-      <span className="text-3xl font-bold text-orange-500 flex items-center gap-1">
-        <span role="img" aria-label="fire">🔥</span> {calories}
-      </span>
-      <span className="text-xs text-gray-500 mt-0.5">ккал в сутки</span>
-    </div>
+      <div className="bg-white rounded-2xl shadow p-5 mb-4">
+  <div className="flex items-center gap-2 mb-3">
+    <span className="text-xl">🧑‍⚕️</span>
+    <span className="font-semibold text-gray-700">Рекомендации на сегодня</span>
   </div>
-  {/* Макросы — мини-карточки */}
-  <div className="flex justify-center gap-4 mt-3">
-    <div className="flex flex-col items-center">
-      <span className="text-xl">🥩</span>
-      <span className="font-semibold text-gray-800">{macros.protein}г</span>
-      <span className="text-xs text-gray-400 mt-0.5">Белки</span>
-    </div>
-    <div className="flex flex-col items-center">
-      <span className="text-xl">🧈</span>
-      <span className="font-semibold text-gray-800">{macros.fats}г</span>
-      <span className="text-xs text-gray-400 mt-0.5">Жиры</span>
-    </div>
-    <div className="flex flex-col items-center">
-      <span className="text-xl">🍚</span>
-      <span className="font-semibold text-gray-800">{macros.carbs}г</span>
-      <span className="text-xs text-gray-400 mt-0.5">Углеводы</span>
-    </div>
+  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-base">
+    <div className="text-gray-500">Калории:</div>
+    <div className="font-semibold text-orange-600">{calories} ккал</div>
+    <div className="text-gray-500">Белки:</div>
+    <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.protein} г <span className="text-lg">🥩</span></div>
+    <div className="text-gray-500">Жиры:</div>
+    <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.fats} г <span className="text-lg">🧈</span></div>
+    <div className="text-gray-500">Углеводы:</div>
+    <div className="font-semibold text-gray-800 flex items-center gap-1">{macros.carbs} г <span className="text-lg">🍚</span></div>
   </div>
 </div>
       </Card>
