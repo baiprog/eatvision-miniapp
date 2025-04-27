@@ -403,26 +403,43 @@ export default function MiniApp() {
           {tab === "profile" && <ProfileView user={user} />}
         </div>
 
-      <div className="fixed left-0 right-0 bottom-0 border-t p-2 flex justify-between items-end bg-white shadow-xl z-10 rounded-t-2xl">
-  <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 ${tab === "home" ? "text-black" : ""}`}>
+      import { Home, BarChart2, Plus, Bot, User } from "lucide-react"; // Импорт иконок
+
+<div className="fixed left-0 right-0 bottom-0 border-t flex justify-between items-end bg-white shadow-xl z-10 rounded-t-2xl px-2 h-[72px]">
+  {/* Домой */}
+  <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "home" ? "text-black" : ""}`}>
     <Home size={24} />
-    <span className="text-xs">Домой</span>
+    <span className="text-xs mt-1">Домой</span>
   </button>
-
-  <div className="w-16"></div> {/* Spacer для "+" */}
-
-  <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 ${tab === "profile" ? "text-black" : ""}`}>
+  
+  {/* Аналитика */}
+  <button onClick={() => setTab("analytics")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "analytics" ? "text-black" : ""}`}>
+    <BarChart2 size={24} />
+    <span className="text-xs mt-1">Аналитика</span>
+  </button>
+  
+  {/* Spacer для кнопки "+" */}
+  <div className="w-16"></div>
+  
+  {/* ИИ-ассистент */}
+  <button onClick={() => setTab("assistant")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "assistant" ? "text-black" : ""}`}>
+    <Bot size={24} />
+    <span className="text-xs mt-1">ИИ-ассистент</span>
+  </button>
+  
+  {/* Профиль */}
+  <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "profile" ? "text-black" : ""}`}>
     <User size={24} />
-    <span className="text-xs">Профиль</span>
+    <span className="text-xs mt-1">Профиль</span>
   </button>
-
+  
   {/* Floating Action "+" */}
   <button
     onClick={() => {
       setTab("upload");
       setTimeout(() => openFilePicker(), 100);
     }}
-    className="absolute left-1/2 -translate-x-1/2 -top-7 z-20 w-16 h-16 rounded-full bg-black border-4 border-white flex items-center justify-center shadow-xl"
+    className="absolute left-1/2 -translate-x-1/2 -top-8 z-20 w-16 h-16 rounded-full bg-black border-4 border-white flex items-center justify-center shadow-xl"
     style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
   >
     <Plus size={36} className="text-white" />
