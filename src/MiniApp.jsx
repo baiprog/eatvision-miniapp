@@ -403,26 +403,31 @@ export default function MiniApp() {
           {tab === "profile" && <ProfileView user={user} />}
         </div>
 
-        <div className="fixed left-0 right-0 bottom-0 border-t p-2 flex justify-around bg-white shadow-xl z-10 rounded-t-2xl">
-          <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 ${tab === "home" ? "text-black" : ""}`}>
-            <Home size={24} />
-            <span className="text-xs">Домой</span>
-          </button>
-          <button
-            onClick={() => {
-              setTab("upload");
-              setTimeout(() => openFilePicker(), 100);
-            }}
-            className={`flex flex-col items-center text-gray-700 ${tab === "upload" ? "text-black" : ""}`}
-          >
-            <Plus size={24} />
-            <span className="text-xs">Загрузить Фото</span>
-          </button>
-          <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 ${tab === "profile" ? "text-black" : ""}`}>
-            <User size={24} />
-            <span className="text-xs">Профиль</span>
-          </button>
-        </div>
+      <div className="fixed left-0 right-0 bottom-0 border-t p-2 flex justify-between items-end bg-white shadow-xl z-10 rounded-t-2xl">
+  <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 ${tab === "home" ? "text-black" : ""}`}>
+    <Home size={24} />
+    <span className="text-xs">Домой</span>
+  </button>
+
+  <div className="w-16"></div> {/* Spacer для "+" */}
+
+  <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 ${tab === "profile" ? "text-black" : ""}`}>
+    <User size={24} />
+    <span className="text-xs">Профиль</span>
+  </button>
+
+  {/* Floating Action "+" */}
+  <button
+    onClick={() => {
+      setTab("upload");
+      setTimeout(() => openFilePicker(), 100);
+    }}
+    className="absolute left-1/2 -translate-x-1/2 -top-7 z-20 w-16 h-16 rounded-full bg-black border-4 border-white flex items-center justify-center shadow-xl"
+    style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
+  >
+    <Plus size={36} className="text-white" />
+  </button>
+</div>
         {previewItem && <FoodPreview item={previewItem} onClose={() => setPreviewItem(null)} />}
       </div>
     </>
