@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import ProfileView from './ProfileView';
 import LoginRegister from './LoginRegister';
-import { Home, Plus, User, Flame, Drumstick, Wheat, Droplets, Bot, BarChart2 } from "lucide-react";
+import { Home, Plus, User, Flame, Drumstick, Wheat, Droplets, Bot, BarChart2, Heart } from "lucide-react";
 import { db } from './firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDoc, onSnapshot } from "firebase/firestore";
 
@@ -25,7 +25,6 @@ function findFoodWord(text) {
   for (let food of foodList) if (lower.includes(food)) return food;
   return null;
 }
-
 // --- Парсер короткого названия блюда ---
 function extractDishTitle(gptText) {
   if (!gptText) return '';
@@ -44,7 +43,6 @@ function extractDishTitle(gptText) {
   const firstFoodLike = line.split(' ').find(w => w.length > 3 && !banWords.includes(w.toLowerCase()));
   return capitalizeFirst(firstFoodLike) || "Блюдо";
 }
-
 // --- Парсер макросов из текста ответа GPT ---
 function parseMacrosFromText(text) {
   const cals = Number((text.match(/Кал[оа]р[ии][иы]?:?\s*(\d+)/i) || [])[1]) || 0;
@@ -53,7 +51,6 @@ function parseMacrosFromText(text) {
   const carb = Number((text.match(/Углевод[ыа]:?\s*(\d+)/i) || [])[1]) || 0;
   return { calories: cals, protein: prot, fats: fats, carbs: carb };
 }
-
 // --- Круглый прогрессбар для макроэлементов и калорий ---
 function MacroCircle({ value, total, label, color }) {
   const percent = total === 0 ? 0 : Math.max(0, Math.min(1, value / total));
@@ -81,14 +78,12 @@ function MacroCircle({ value, total, label, color }) {
     </div>
   );
 }
-
 // --- Модальное превью блюда ---
 function FoodPreview({ item, onClose }) {
   if (!item) return null;
   const macros = parseMacrosFromText(item.resultText || "");
   const name = extractDishTitle(item.resultText) || "Блюдо";
   const [count, setCount] = useState(1);
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
       <div className="bg-white rounded-3xl shadow-xl p-5 max-w-sm w-full relative">
@@ -152,7 +147,6 @@ function FoodPreview({ item, onClose }) {
     </div>
   );
 }
-
 // --- Карточка Истории блюд ---
 function HistoryList({ user, onPreview }) {
   const [docs, setDocs] = useState([]);
@@ -208,7 +202,6 @@ function HistoryList({ user, onPreview }) {
     </div>
   );
 }
-
 const Button = ({ children, ...props }) => (
   <button className="px-4 py-2 bg-black text-white rounded-xl" {...props}>{children}</button>
 );
@@ -235,7 +228,6 @@ export default function MiniApp() {
       });
     }
   }, [user]);
-
   useEffect(() => {
     if (!user?.uid) return;
     const q = query(collection(db, "users", user.uid, "generations"), orderBy("createdAt", "desc"));
@@ -244,7 +236,6 @@ export default function MiniApp() {
     });
     return () => unsubscribe();
   }, [user]);
-
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   const todayGenerations = generations.filter(g => {
@@ -252,7 +243,6 @@ export default function MiniApp() {
     if (!d) return false;
     return d.toISOString().slice(0, 10) === todayStr;
   });
-
   let sumCalories = 0, sumProtein = 0, sumFats = 0, sumCarbs = 0;
   todayGenerations.forEach(gen => {
     const parsed = parseMacrosFromText(gen.resultText || "");
@@ -261,7 +251,6 @@ export default function MiniApp() {
     sumFats     += parsed.fats;
     sumCarbs    += parsed.carbs;
   });
-
   const caloriesTotal = profile?.calories || 2000;
   const proteinTotal = profile?.macros?.protein || 150;
   const fatsTotal = profile?.macros?.fats || 70;
@@ -272,14 +261,11 @@ export default function MiniApp() {
     const timer = setTimeout(() => setSplash(false), 1800);
     return () => clearTimeout(timer);
   }, []);
-
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setLoading(true);
     setResult("");
-
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = reader.result.split(",")[1];
@@ -294,11 +280,9 @@ export default function MiniApp() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: `data:image/jpeg;base64,${base64}`, prompt: PROMPT })
         });
-
         const data = await response.json();
         const text = data.choices?.[0]?.message?.content || "GPT не дал ответ 🙁";
         setResult(text);
-
         if (user) {
           await addDoc(collection(db, "users", user.uid, "generations"), {
             resultText: text,
@@ -315,7 +299,6 @@ export default function MiniApp() {
     };
     reader.readAsDataURL(file);
   };
-
   const openFilePicker = () => {
     if (fileInputRef.current) fileInputRef.current.click();
   };
@@ -329,7 +312,6 @@ export default function MiniApp() {
       </div>
     );
   }
-
   return (
     <>
       <input
@@ -380,7 +362,6 @@ export default function MiniApp() {
               </div>
             </div>
           )}
-
           {tab === "upload" && (
             <div className="flex flex-col items-center gap-4">
               <h1 className="text-2xl font-bold">🥗 Анализ еды</h1>
@@ -399,52 +380,56 @@ export default function MiniApp() {
               )}
             </div>
           )}
-
+          {tab === "analytics" && (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+              <BarChart2 size={64} className="mb-4" />
+              <div className="text-xl font-semibold">Раздел "Аналитика" в разработке</div>
+            </div>
+          )}
+          {tab === "assistant" && (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+              <Bot size={64} className="mb-4" />
+              <div className="text-xl font-semibold">ИИ-ассистент скоро будет</div>
+            </div>
+          )}
           {tab === "profile" && <ProfileView user={user} />}
         </div>
-
-      import { Home, BarChart2, Plus, Bot, User } from "lucide-react"; // Импорт иконок
-
-<div className="fixed left-0 right-0 bottom-0 border-t flex justify-between items-end bg-white shadow-xl z-10 rounded-t-2xl px-2 h-[72px]">
-  {/* Домой */}
-  <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "home" ? "text-black" : ""}`}>
-    <Home size={24} />
-    <span className="text-xs mt-1">Домой</span>
-  </button>
-  
-  {/* Аналитика */}
-  <button onClick={() => setTab("analytics")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "analytics" ? "text-black" : ""}`}>
-    <BarChart2 size={24} />
-    <span className="text-xs mt-1">Аналитика</span>
-  </button>
-  
-  {/* Spacer для кнопки "+" */}
-  <div className="w-16"></div>
-  
-  {/* ИИ-ассистент */}
-  <button onClick={() => setTab("assistant")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "assistant" ? "text-black" : ""}`}>
-    <Bot size={24} />
-    <span className="text-xs mt-1">ИИ-ассистент</span>
-  </button>
-  
-  {/* Профиль */}
-  <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "profile" ? "text-black" : ""}`}>
-    <User size={24} />
-    <span className="text-xs mt-1">Профиль</span>
-  </button>
-  
-  {/* Floating Action "+" */}
-  <button
-    onClick={() => {
-      setTab("upload");
-      setTimeout(() => openFilePicker(), 100);
-    }}
-    className="absolute left-1/2 -translate-x-1/2 -top-8 z-20 w-16 h-16 rounded-full bg-black border-4 border-white flex items-center justify-center shadow-xl"
-    style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
-  >
-    <Plus size={36} className="text-white" />
-  </button>
-</div>
+        {/* Нижнее меню с центральным + */}
+        <div className="fixed left-0 right-0 bottom-0 border-t flex justify-between items-end bg-white shadow-xl z-10 rounded-t-2xl px-2 h-[72px]">
+          {/* Домой */}
+          <button onClick={() => setTab("home")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "home" ? "text-black" : ""}`}>
+            <Home size={24} />
+            <span className="text-xs mt-1">Домой</span>
+          </button>
+          {/* Аналитика */}
+          <button onClick={() => setTab("analytics")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "analytics" ? "text-black" : ""}`}>
+            <BarChart2 size={24} />
+            <span className="text-xs mt-1">Аналитика</span>
+          </button>
+          {/* Spacer для центральной кнопки */}
+          <div className="w-16"></div>
+          {/* ИИ-ассистент */}
+          <button onClick={() => setTab("assistant")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "assistant" ? "text-black" : ""}`}>
+            <Bot size={24} />
+            <span className="text-xs mt-1">ИИ-ассистент</span>
+          </button>
+          {/* Профиль */}
+          <button onClick={() => setTab("profile")} className={`flex flex-col items-center text-gray-700 w-1/5 ${tab === "profile" ? "text-black" : ""}`}>
+            <User size={24} />
+            <span className="text-xs mt-1">Профиль</span>
+          </button>
+          {/* Floating Action "+" */}
+          <button
+            onClick={() => {
+              setTab("upload");
+              setTimeout(() => openFilePicker(), 100);
+            }}
+            className="absolute left-1/2 -translate-x-1/2 -top-8 z-20 w-16 h-16 rounded-full bg-black border-4 border-white flex items-center justify-center shadow-xl"
+            style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
+          >
+            <Plus size={36} className="text-white" />
+          </button>
+        </div>
         {previewItem && <FoodPreview item={previewItem} onClose={() => setPreviewItem(null)} />}
       </div>
     </>
