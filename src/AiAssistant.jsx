@@ -1,12 +1,9 @@
+// AiAssistant.jsx
+
 import { useEffect, useState, useRef } from "react";
 import { db } from "./firebase";
-import { collection, addDoc, serverTimestamp, query, orderBy, doc, onSnapshot, getDocs } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from "firebase/firestore";
 import { Menu, Plus } from "lucide-react";
-
-function formatTime(date) {
-  if (!date) return "";
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 export default function AiAssistant({ user }) {
   const [chats, setChats] = useState([]);
@@ -17,7 +14,7 @@ export default function AiAssistant({ user }) {
   const [loading, setLoading] = useState(false);
   const inputRef = useRef();
 
-  // Загрузка чатов пользователя
+  // Чаты пользователя
   useEffect(() => {
     if (!user?.uid) return;
     const q = query(collection(db, "users", user.uid, "chats"), orderBy("createdAt", "desc"));
@@ -27,7 +24,7 @@ export default function AiAssistant({ user }) {
     return () => unsub();
   }, [user]);
 
-  // Загрузка сообщений текущего чата
+  // Сообщения текущего чата
   useEffect(() => {
     if (!user?.uid || !currentChatId) return setMessages([]);
     const q = query(collection(db, "users", user.uid, "chats", currentChatId, "messages"), orderBy("createdAt"));
@@ -58,7 +55,6 @@ export default function AiAssistant({ user }) {
     if (!input.trim() || !user?.uid || !currentChatId) return;
     setLoading(true);
 
-    // Сохраняем пользовательское сообщение
     await addDoc(collection(db, "users", user.uid, "chats", currentChatId, "messages"), {
       role: "user",
       content: input,
@@ -67,15 +63,14 @@ export default function AiAssistant({ user }) {
 
     setInput("");
 
-    // Запрос к OpenAI (или вашему backend)
     try {
-      // Собираем все предыдущие сообщения для контекста
-      const prevMessages = messages.map(m => ({ role: m.role, content: m.content }));
+      // Собрать контекст последних 6 сообщений (можно ограничить)
+      const prevMessages = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer YOUR_OPENAI_KEY"
+          "Authorization": "Bearer ВСТАВЬ_СЮДА_СВОЙ_OPENAI_API_KEY"
         },
         body: JSON.stringify({
           model: "gpt-3.5-turbo",
@@ -102,14 +97,14 @@ export default function AiAssistant({ user }) {
     setLoading(false);
   };
 
-  // Для UI: сделать последний чат активным если только что создан
+  // Если чат только создан — сделать его активным
   useEffect(() => {
     if (!currentChatId && chats.length > 0) setCurrentChatId(chats[0].id);
   }, [chats, currentChatId]);
 
   return (
     <div className="flex h-full">
-      {/* Сайдбар (чаты) */}
+      {/* Сайдбар чатов */}
       <div className={`fixed left-0 top-0 bottom-0 z-50 bg-white border-r transition-all duration-200 ${showSidebar ? 'w-72' : 'w-0'} overflow-x-hidden`}>
         <div className="flex flex-col h-full">
           <div className="flex items-center px-4 py-2 border-b">
