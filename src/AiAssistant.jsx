@@ -51,7 +51,7 @@ export default function AiAssistant({ user }) {
     setShowSidebar(false);
   };
 
-  // Отправка сообщения
+  // Отправка сообщения (через proxy backend!)
   const sendMessage = async () => {
     if (!input.trim() || !user?.uid || !currentChatId) return;
     setLoading(true);
@@ -65,19 +65,18 @@ export default function AiAssistant({ user }) {
     setInput("");
 
     try {
+      // Контекст: последние 6 сообщений
       const prevMessages = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+
+      // === ЗАПРОС К ПРОКСИ ===
+      const response = await fetch("https://gpt4-vision-proxy.onrender.com/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer ВСТАВЬ_СЮДА_СВОЙ_OPENAI_API_KEY"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
           messages: [
             ...prevMessages,
             { role: "user", content: input }
-          ],
+          ]
         })
       });
       const data = await response.json();
