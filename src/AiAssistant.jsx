@@ -38,7 +38,7 @@ export default function AiAssistant({ user }) {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     }
-  }, [messages, currentChatId]);
+  }, [messages, currentChatId, loading]);
 
   // Новый чат
   const createNewChat = async () => {
@@ -101,6 +101,14 @@ export default function AiAssistant({ user }) {
     if (!currentChatId && chats.length > 0) setCurrentChatId(chats[0].id);
   }, [chats, currentChatId]);
 
+  // Функция для форматирования текста с переносами строк
+  function formatText(text) {
+    // делит по двойным переносам абзацы
+    return text.split(/\n{2,}/).map((para, idx) =>
+      <p key={idx} style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>{para.trim()}</p>
+    );
+  }
+
   return (
     <div className="flex h-full">
       {/* Сайдбар чатов */}
@@ -154,10 +162,18 @@ export default function AiAssistant({ user }) {
           {messages.map((m, idx) => (
             <div key={idx} className={`my-2 flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${m.role === "user" ? "bg-black text-white" : "bg-gray-100 text-gray-800"} shadow-sm`}>
-                {m.content}
+                {formatText(m.content)}
               </div>
             </div>
           ))}
+          {/* Индикатор загрузки "пишет..." */}
+          {loading && (
+            <div className="flex justify-start my-2">
+              <div className="max-w-[80%] rounded-2xl px-4 py-2 bg-gray-100 text-gray-400 shadow-sm italic animate-pulse">
+                Пишет...
+              </div>
+            </div>
+          )}
         </div>
 
         {/* форма ввода */}
