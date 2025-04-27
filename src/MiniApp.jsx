@@ -4,6 +4,9 @@ import LoginRegister from './LoginRegister';
 import { Home, Plus, User, Flame, Drumstick, Wheat, Droplets, Bot, BarChart2, Heart } from "lucide-react";
 import { db } from './firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDoc, onSnapshot } from "firebase/firestore";
+import AiAssistant from './AiAssistant';
+// ...
+{tab === "assistant" && <AiAssistant user={user} />}
 
 // --- Базовые списки для определения названия блюда ---
 const banWords = [
