@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import ProfileView from './ProfileView';
 import LoginRegister from './LoginRegister';
-import { Home, Plus, User, Flame, Drumstick, Wheat, Droplets, Heart } from "lucide-react";
+import { Home, Plus, User, Flame, Drumstick, Wheat, Droplets, Bot, BarChart2 } from "lucide-react";
 import { db } from './firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDoc, onSnapshot } from "firebase/firestore";
 
