@@ -1,5 +1,3 @@
-// AiAssistant.jsx
-
 import { useEffect, useState, useRef } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from "firebase/firestore";
@@ -140,7 +138,7 @@ export default function AiAssistant({ user }) {
           <span className="text-lg font-semibold flex-1">ChatGPT 4o</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 pb-24">
+        <div className="flex-1 overflow-y-auto p-4 pb-4">
           {messages.length === 0 && (
             <div className="text-gray-400 text-center mt-24">
               <div>Задайте вопрос ИИ или выберите чат</div>
@@ -155,9 +153,9 @@ export default function AiAssistant({ user }) {
           ))}
         </div>
 
-        {/* Ввод */}
+        {/* Ввод (больше не fixed, теперь в потоке) */}
         <form
-          className="fixed left-0 right-0 bottom-0 bg-white border-t flex items-center p-2 z-20"
+          className="bg-white border-t flex items-center p-2"
           style={{ boxShadow: "0 -2px 8px #eee" }}
           onSubmit={e => { e.preventDefault(); sendMessage(); }}
         >
