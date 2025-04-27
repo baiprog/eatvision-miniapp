@@ -11,6 +11,7 @@ export default function AiAssistant({ user }) {
   const [showSidebar, setShowSidebar] = useState(false);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef();
+  const messagesRef = useRef();
 
   // Чаты пользователя
   useEffect(() => {
@@ -32,10 +33,12 @@ export default function AiAssistant({ user }) {
     return () => unsub();
   }, [user, currentChatId]);
 
-  // Автофокус
+  // Скролл вниз при новых сообщениях
   useEffect(() => {
-    if (inputRef.current) inputRef.current.focus();
-  }, [currentChatId]);
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    }
+  }, [messages, currentChatId]);
 
   // Новый чат
   const createNewChat = async () => {
@@ -62,7 +65,6 @@ export default function AiAssistant({ user }) {
     setInput("");
 
     try {
-      // Собрать контекст последних 6 сообщений (можно ограничить)
       const prevMessages = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -95,7 +97,7 @@ export default function AiAssistant({ user }) {
     setLoading(false);
   };
 
-  // Если чат только создан — сделать его активным
+  // Сделать первый чат активным, если текущий не выбран
   useEffect(() => {
     if (!currentChatId && chats.length > 0) setCurrentChatId(chats[0].id);
   }, [chats, currentChatId]);
@@ -131,14 +133,20 @@ export default function AiAssistant({ user }) {
 
       {/* Контент чата */}
       <div className="flex-1 flex flex-col h-full relative bg-white">
+        {/* sticky header */}
         <div className="flex items-center px-4 py-2 border-b shadow-sm sticky top-0 bg-white z-10">
           <button onClick={() => setShowSidebar(true)} className="mr-2">
             <Menu size={28} />
           </button>
-          <span className="text-lg font-semibold flex-1">ChatGPT 4o</span>
+          <span className="text-lg font-semibold flex-1">EatVision Ai</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 pb-4">
+        {/* scrollable messages */}
+        <div
+          className="flex-1 overflow-y-auto p-4"
+          ref={messagesRef}
+          style={{ minHeight: 0, maxHeight: "calc(100vh - 120px)" }}
+        >
           {messages.length === 0 && (
             <div className="text-gray-400 text-center mt-24">
               <div>Задайте вопрос ИИ или выберите чат</div>
@@ -153,7 +161,7 @@ export default function AiAssistant({ user }) {
           ))}
         </div>
 
-        {/* Ввод (больше не fixed, теперь в потоке) */}
+        {/* форма ввода */}
         <form
           className="bg-white border-t flex items-center p-2"
           style={{ boxShadow: "0 -2px 8px #eee" }}
