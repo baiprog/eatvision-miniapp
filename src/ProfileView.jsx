@@ -10,7 +10,37 @@ import { db } from "./firebase";
 import EditProfileModal from "./EditProfileModal";
 import MealPlanSection from "./MealPlanSection";
 
-// ... (оставь ACTIVITY_LEVELS, DEFICIT_LEVELS, calcBMR, calcTDEE, calcMacros как в прошлом коде)
+// ВСТАВЬ ЭТОТ БЛОК СЮДА ⬇️
+const ACTIVITY_LEVELS = [
+  { value: 1.2, label: "0-1 тренировка/неделя (минимальная)" },
+  { value: 1.375, label: "2-3 тренировки/неделя (лёгкая)" },
+  { value: 1.55, label: "4-5 тренировок/неделя (средняя)" },
+  { value: 1.725, label: "6-7 тренировок/неделя (высокая)" },
+];
+const DEFICIT_LEVELS = [
+  { value: 300, label: "Медленно (-300 ккал/день)" },
+  { value: 500, label: "Оптимально (-500 ккал/день)" },
+  { value: 700, label: "Быстро (-700 ккал/день)" },
+];
+function calcBMR({ sex, weight, height, age }) {
+  if (sex === "male") {
+    return 88.36 + 13.4 * weight + 4.8 * height - 5.7 * age;
+  }
+  return 447.6 + 9.2 * weight + 3.1 * height - 4.3 * age;
+}
+function calcTDEE(bmr, activity) {
+  return bmr * activity;
+}
+function calcMacros(weight, calories) {
+  const protein = Math.round(weight * 1.8);
+  const fats = Math.round(weight * 1.0);
+  const kcalFromProtein = protein * 4;
+  const kcalFromFats = fats * 9;
+  const carbs = Math.round((calories - kcalFromProtein - kcalFromFats) / 4);
+  return { protein, fats, carbs };
+}
+
+// ... дальше твой код
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
