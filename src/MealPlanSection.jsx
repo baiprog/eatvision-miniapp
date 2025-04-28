@@ -6,7 +6,23 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import Modal from "./Modal"; // убедись, что у тебя есть Modal.jsx
+import Modal from "./Modal";
+
+// Функция генерации картинки через бэкенд
+async function getFoodPhoto(dishName) {
+  try {
+    const response = await fetch('https://ТВОЙ-БЭКЕНД/generate-food-photo', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dishName }),
+    });
+    const data = await response.json();
+    return data.imageUrl;
+  } catch (error) {
+    console.error("Ошибка генерации фото блюда:", error);
+    return null;
+  }
+}
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
@@ -75,9 +91,19 @@ export default function MealPlanSection({ user }) {
         throw new Error("Результат GPT не является массивом");
       }
 
-      setMeals(parsed);
+      // Теперь для каждого блюда получаем изображение
+      const mealsWithImages = await Promise.all(parsed.map(async (meal, index) => {
+        const photo = await getFoodPhoto(meal.title);
+        return {
+          ...meal,
+          image: photo || `https://source.unsplash.com/100x100/?food,${encodeURIComponent(meal.title)}&sig=${index}`
+        };
+      }));
+
+      setMeals(mealsWithImages);
+
       await setDoc(ref, {
-        plan: parsed,
+        plan: mealsWithImages,
         createdAt: serverTimestamp(),
       });
     } catch (err) {
@@ -114,7 +140,7 @@ export default function MealPlanSection({ user }) {
               key={i}
               title={meal.title}
               kcal={meal.kcal}
-              image={`https://source.unsplash.com/100x100/?food,${encodeURIComponent(meal.title)}&sig=${i}`}
+              image={meal.image}
               onClick={() => setSelectedMeal(meal)}
             />
           ))
@@ -137,5 +163,3 @@ export default function MealPlanSection({ user }) {
     </>
   );
 }
-
-
