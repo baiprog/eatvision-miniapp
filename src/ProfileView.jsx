@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, User } from "lucide-react";
 import {
   doc,
   getDoc,
@@ -10,38 +10,7 @@ import { db } from "./firebase";
 import EditProfileModal from "./EditProfileModal";
 import MealPlanSection from "./MealPlanSection";
 
-// Уровни активности
-const ACTIVITY_LEVELS = [
-  { value: 1.2, label: "0-1 тренировка/неделя (минимальная)" },
-  { value: 1.375, label: "2-3 тренировки/неделя (лёгкая)" },
-  { value: 1.55, label: "4-5 тренировок/неделя (средняя)" },
-  { value: 1.725, label: "6-7 тренировок/неделя (высокая)" },
-];
-// Дефицит — ккал и описание
-const DEFICIT_LEVELS = [
-  { value: 300, label: "Медленно (-300 ккал/день)" },
-  { value: 500, label: "Оптимально (-500 ккал/день)" },
-  { value: 700, label: "Быстро (-700 ккал/день)" },
-];
-
-// Формула Харриса-Бенедикта
-function calcBMR({ sex, weight, height, age }) {
-  if (sex === "male") {
-    return 88.36 + 13.4 * weight + 4.8 * height - 5.7 * age;
-  }
-  return 447.6 + 9.2 * weight + 3.1 * height - 4.3 * age;
-}
-function calcTDEE(bmr, activity) {
-  return bmr * activity;
-}
-function calcMacros(weight, calories) {
-  const protein = Math.round(weight * 1.8);
-  const fats = Math.round(weight * 1.0);
-  const kcalFromProtein = protein * 4;
-  const kcalFromFats = fats * 9;
-  const carbs = Math.round((calories - kcalFromProtein - kcalFromFats) / 4);
-  return { protein, fats, carbs };
-}
+// ... (оставь ACTIVITY_LEVELS, DEFICIT_LEVELS, calcBMR, calcTDEE, calcMacros как в прошлом коде)
 
 const Card = ({ children }) => (
   <div className="bg-white rounded-2xl shadow p-4 mb-4">{children}</div>
@@ -53,6 +22,8 @@ export default function ProfileView({ user }) {
 
   // По умолчанию
   const defaultProfile = {
+    name: "",
+    photo: "",
     sex: "male",
     weight: 70,
     height: 170,
@@ -62,7 +33,6 @@ export default function ProfileView({ user }) {
     goal: "Похудение",
   };
 
-  // Загрузка профиля
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -77,10 +47,8 @@ export default function ProfileView({ user }) {
     };
 
     loadUserInfo();
-    // eslint-disable-next-line
   }, [user]);
 
-  // Автосохраняем нормы и макросы
   useEffect(() => {
     if (!userInfo || !user?.uid) return;
     const activityValue = Number(userInfo.activity) || 1.375;
@@ -89,7 +57,6 @@ export default function ProfileView({ user }) {
     const height = Number(userInfo.height) || 170;
     const age = Number(userInfo.age) || 25;
     const sex = userInfo.sex || "male";
-
     const bmr = calcBMR({ sex, weight, height, age });
     const tdee = calcTDEE(bmr, activityValue);
     const calories = Math.max(1000, Math.round(tdee - deficitValue));
@@ -105,12 +72,10 @@ export default function ProfileView({ user }) {
   const saveProfile = async (patch) => {
     const updated = { ...userInfo, ...patch };
     setUserInfo(updated);
-    // эффект useEffect сохранит профиль
   };
 
   if (!userInfo) return null;
 
-  // Переводим значения в цифры
   const activityValue = Number(userInfo.activity) || 1.375;
   const deficitValue = Number(userInfo.deficit) || 500;
   const weight = Number(userInfo.weight) || 70;
@@ -123,8 +88,34 @@ export default function ProfileView({ user }) {
   const calories = Math.max(1000, Math.round(tdee - deficitValue));
   const macros = calcMacros(weight, calories);
 
+  // Вытаскиваем имя/email/аватар пользователя
+  const displayName = userInfo.name || user.displayName || user.email || "Пользователь";
+  const photoURL = userInfo.photo || user.photoURL;
+
   return (
     <div className="max-w-md mx-auto">
+      {/* Блок с аватаром и именем */}
+      <div className="flex flex-col items-center py-4">
+        <div className="relative">
+          {photoURL ? (
+            <img
+              src={photoURL}
+              alt="Аватар"
+              className="w-20 h-20 rounded-full object-cover shadow"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 shadow">
+              <User size={44} />
+            </div>
+          )}
+          {/* Можно добавить кнопку смены фото */}
+        </div>
+        <div className="mt-2 font-bold text-lg">{displayName}</div>
+        {user.email && (
+          <div className="text-xs text-gray-400">{user.email}</div>
+        )}
+      </div>
+
       {/* Карточка профиля */}
       <Card>
         <div className="flex justify-between items-center mb-2">
@@ -152,7 +143,6 @@ export default function ProfileView({ user }) {
           <br />
           Цель: <b>{userInfo.goal}</b>
         </div>
-        {/* Рекомендации по питанию */}
         <div className="bg-white rounded-2xl shadow p-5 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">🧑‍⚕️</span>
@@ -172,7 +162,7 @@ export default function ProfileView({ user }) {
       </Card>
 
       {/* Секция плана питания */}
-      <MealPlanSection user={user} userInfo={{...userInfo, calories, macros}} />
+      <MealPlanSection user={user} userInfo={{ ...userInfo, calories, macros }} />
 
       {/* Модалка редактирования профиля */}
       <Transition appear show={editOpen} as={Fragment}>
