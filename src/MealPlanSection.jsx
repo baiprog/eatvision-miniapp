@@ -11,7 +11,7 @@ import Modal from "./Modal";
 // Функция генерации картинки через бэкенд
 async function getFoodPhoto(dishName) {
   try {
-    const response = await fetch('https://ТВОЙ-БЭКЕНД/generate-food-photo', {
+    const response = await fetch('https://gpt4-vision-proxy.onrender.com', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dishName }),
